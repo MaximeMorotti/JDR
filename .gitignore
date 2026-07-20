@@ -1,2 +1,19 @@
-fiches_techniques/img
-fiches_techniques/Maj
+docs/img
+docs/Maj
+
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Environment variables
+.env
+**/.env
+
+# Prisma and Databases
+/server/src/generated/prisma
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+dev.db
+**/dev.db
