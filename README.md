@@ -1,0 +1,1 @@
+initialisation du projet après un mapping technique des orienté UI 
