@@ -1,0 +1,60 @@
+### PROMPT REVISÉ POUR L'IDE / L'AGENT IA
+
+**Contexte :**
+Je développe un JDR narratif en TypeScript (client Vite + serveur Node/Express, Prisma + SQLite). Le Sprint 0 est terminé (structure client/serveur en place, Prisma initialisé avec SQLite, migration de test validée).
+Je démarre le **Sprint 1** qui concerne la création de personnage et d'équipe de A à Z.
+
+**Consigne préalable d'imprégnation (Obligatoire) :**
+Avant d'écrire la moindre ligne de code ou de faire des choix d'architecture, **lis attentivement l'ensemble des fichiers de documentation** ci-dessous pour t'imprégner profondément du lore, des règles métier, des modèles de données et du périmètre exact du sprint :
+
+1. **Orientation et Planification globale :**
+* `README.md` → vue d'ensemble du projet, stack technique, conventions et architecture.
+* `docs/roadmap.md` (ou `roadmap.md`) → cadrage général, jalons du projet et spécifications exactes définies pour le **Sprint 1**.
+
+
+2. **Données métier et univers (dans `docs/final/md_for_ide/`) :**
+* `fiche_technique_joueur_personnage.md` → structure complète du modèle de données d'un personnage (stats, emplacements d'équipement, caractéristiques, métadonnées).
+* `Codex_des_Classes.md` → les 5 races, les 7 classes (génériques et exclusives), les 38 spécialisations et les restrictions d'armes/armures.
+* `Codex_de_l_Equipement.md` → catalogue complet du chapitre 1 (armes, armures, accessoires, prix) et budget de départ de 100 po.
+* `Codex_des_Compagnons.md` → les 10 compagnons, leurs statistiques, leurs prérequis d'accès (classe/race) et leur capacité de transport.
+* `Bestiaire_et_Races.md` → statistiques de base et modificateurs raciaux à appliquer pour le calcul dynamique des stats.
+* `Repertoire_de_Craft.md` → à consulter pour la cohérence globale de l'univers (bien que le système de craft soit prévu pour le Sprint 4).
+
+
+
+---
+
+**Objectif du Sprint 1 :**
+Permettre à un joueur, en solo sur un seul appareil (mode local), de créer une équipe composée de 1 à 4 personnages (pseudo, race, classe, spécialisation, équipement de départ) en gérant un budget partagé de 100 po, puis de choisir un compagnon pour l'équipe — le tout persisté en base de données SQLite via Prisma et rechargeable.
+
+---
+
+**Précisions sur le périmètre et règles métier :**
+
+* **Taille de l'équipe :** 1 à 4 personnages au choix du joueur.
+* **Sélection du compagnon :** 1 seul compagnon maximum par équipe, choisi à la fin de la création des personnages. La disponibilité de chaque compagnon dépend des combinaisons classe/race présentes dans l'équipe (ex: l'Élan requiert un Chasseur sylvestre dans l'équipe).
+* **Mode local :** Un seul joueur sur une seule machine. Hors périmètre : authentification, sessions multi-utilisateurs et mode multijoueur à distance.
+* **Budget de guilde :** 100 po partagées par toute l'équipe pour l'achat de l'équipement initial.
+
+---
+
+**Missions tactiques à accomplir :**
+
+1. **Modélisation de l'architecture de données (Prisma) :**
+Concevoir le schéma relationnel englobant les équipes, les personnages, l'inventaire et le catalogue de référence en respectant la structure de `fiche_technique_joueur_personnage.md`. Garantir l'intégrité des règles métier en base (budget non négatif, exclusion mutuelle des classes/races, limite de taille d'équipe, unicité du compagnon).
+2. **Initialisation du catalogue (Seed) :**
+Mettre en place un script de seed peuplant la base SQLite avec l'ensemble des données de référence (races, classes, objets, compagnons) extraites directement des fichiers Markdown fournis.
+3. **Logique métier Backend (API Node/Express) :**
+Développer les services REST de gestion d'équipe et d'exposition du catalogue avec une validation autoritaire stricte côté serveur (vérification des prérequis de race/classe, respect du budget, validation des équipements).
+4. **Expérience Utilisateur et Flux Client (Vite/TS) :**
+Implémenter le flux pas-à-pas de création (infos de base -> classe/race -> équipement -> compagnon). Assurer le calcul dynamique en temps réel des statistiques (stats raciales + classe + bonus équipements) et la mise à jour visuelle du budget.
+5. **Audit de cohérence et rapport de documentation :**
+Si tu identifies des ambiguïtés, des champs manquants ou des incohérences entre les règles des fichiers Markdown et la modélisation technique, consigne-les explicitement dans une section finale *"Écarts à reporter dans la documentation"*.
+
+---
+
+**Contraintes techniques strictes :**
+
+* Code rédigé en **TypeScript strict**.
+* Commentaires et documentation interne en **français**.
+* **Zero dépendance superflue** : verrouiller et figer exactement toutes les versions des packages utilisés (versioning strict / *frozen dependencies*).

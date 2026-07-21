@@ -54,6 +54,11 @@ Document de suivi du projet, découpé en sprints. Chaque sprint a un objectif u
 - 🔴 API : `POST /personnages`, `GET /personnages/:id`, `PATCH /personnages/:id/equipement`
 - 🟡 Script de seed Prisma qui importe automatiquement tout le contenu du Codex de l'Équipement en base (au lieu de la ressaisie manuelle)
 
+### Décisions de cadrage (voir `CLAUDE.md` et `vibe/implementation_plan/implementation_plan.md` pour le détail)
+- Les 8 caractéristiques (dont Chance/Perception, absentes du Bestiaire source) sont toujours affichées complètes, jamais omises.
+- Une classe "déconseillée" pour une race reste sélectionnable dans l'UI, jamais masquée — seule une case "—" bloque.
+- Le stuff de spawn du Mage (Bâton + Grimoire + Robe d'apprenti) est verrouillé et gratuit ; le stuff "École Noire" (nécessite de vaincre le Cultiste mineur) est **hors périmètre du Sprint 1**, reporté au Sprint 3 (combat).
+
 ---
 
 ## Sprint 2 — Déplacement sur la carte de combat
