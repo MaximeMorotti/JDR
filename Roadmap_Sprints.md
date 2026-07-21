@@ -34,10 +34,10 @@ Document de suivi du projet, découpé en sprints. Chaque sprint a un objectif u
 **Objectif** : un joueur peut créer un personnage complet (race, classe, stats, équipement de départ) et le retrouver après rechargement de la page.
 
 ### User story
-> En tant que joueur, je veux créer mon personnage (race, classe, spécialisation, statistiques, équipement de départ) afin de commencer l'aventure avec un personnage qui me ressemble.
+> En tant que joueur, je veux créer mon personnage (race, classe, statistiques, équipement de départ) afin de commencer l'aventure avec un personnage qui me ressemble.
 
 ### Features
-- 🔴 Formulaire de création : choix de la Race (5 options), de la Classe (7 options), de la Spécialisation
+- 🔴 Formulaire de création : choix de la Race (5 options), de la Classe (7 options). La Spécialisation n'est **pas** choisie ici (voir correction ci-dessous) — aperçu en lecture seule uniquement
 - 🔴 Application automatique des modificateurs raciaux aux statistiques de base
 - 🔴 Verrouillage des classes exclusives selon la race choisie (règle du Codex des Classes)
 - 🔴 Boutique de départ : répartition du budget d'équipe (100 po / 3-4 personnages) entre armes, armures, accessoires
@@ -58,6 +58,7 @@ Document de suivi du projet, découpé en sprints. Chaque sprint a un objectif u
 - Les 8 caractéristiques (dont Chance/Perception, absentes du Bestiaire source) sont toujours affichées complètes, jamais omises.
 - Une classe "déconseillée" pour une race reste sélectionnable dans l'UI, jamais masquée — seule une case "—" bloque.
 - Le stuff de spawn du Mage (Bâton + Grimoire + Robe d'apprenti) est verrouillé et gratuit ; le stuff "École Noire" (nécessite de vaincre le Cultiste mineur) est **hors périmètre du Sprint 1**, reporté au Sprint 3 (combat).
+- La spécialisation n'est pas un choix à la création : c'est le contenu d'un futur arbre de compétences par classe (non conçu). Retirée du flux Sprint 1, affichée en lecture seule ; sa conception est à planifier dans un sprint ultérieur.
 
 ---
 

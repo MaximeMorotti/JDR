@@ -10,11 +10,298 @@ generator client {
 
 datasource db {
   provider = "sqlite"
-  url      = env("DATABASE_URL")
 }
 
-model TestConnexion {
-  id        Int      @id @default(autoincrement())
-  message   String
+// ============================================================
+// ÉQUIPE & PERSONNAGE
+// ============================================================
+
+/// Une équipe d'aventuriers (1 à 4 personnages) partageant un budget de départ.
+model Equipe {
+  id        String   @id @default(cuid())
+  nom       String
+  orRestant Int      @default(100)
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  personnages     Personnage[]
+  compagnonEquipe CompagnonEquipe?
+
+  @@map("equipes")
+}
+
+/// Fiche complète d'un personnage joueur, cf. fiche_technique_joueur_personnage.md
+model Personnage {
+  id       String @id @default(cuid())
+  pseudo   String
+  equipeId String
+  equipe   Equipe @relation(fields: [equipeId], references: [id], onDelete: Cascade)
+
+  raceId String
+  race   RaceRef @relation(fields: [raceId], references: [id])
+
+  classeId String
+  classe   ClasseRef @relation(fields: [classeId], references: [id])
+
+  specialisationId String?
+  specialisation   SpecialisationRef? @relation(fields: [specialisationId], references: [id])
+
+  // Identité — champs optionnels hors périmètre du flux de création Sprint 1,
+  // déclarés dès maintenant pour ne pas re-migrer plus tard (voir fiche technique §1).
+  genre            String?
+  age              Int?
+  alignement       String?
+  origineNarrative String?
+  taille           Float?
+  poids            Float?
+
+  // Caractéristiques (8) — valeur de départ = stats de base raciales (RaceRef).
+  // Aucun bonus de classe dans les Codex actuels : la classe restreint l'équipement, pas les stats.
+  force        Int
+  dexterite    Int
+  vitalite     Int
+  charisme     Int
+  intelligence Int
+  sagesse      Int
+  chance       Int
+  perception   Int
+
+  // Progression — hors périmètre du flux de création Sprint 1, déclaré pour les sprints suivants.
+  niveau                     Int     @default(1)
+  xp                         Int     @default(0)
+  pointsCompetenceNonAlloues Int     @default(0)
+  titre                      String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  inventaire InventairePersonnage[]
+
+  @@unique([equipeId, pseudo])
+  @@map("personnages")
+}
+
+// ============================================================
+// CATALOGUE DE RÉFÉRENCE — RACES, CLASSES, SPÉCIALISATIONS
+// ============================================================
+
+/// Catalogue des 5 races jouables. Id = slug stable (ex: "humain").
+model RaceRef {
+  id String @id
+
+  nom         String
+  tailleMin   Float?
+  tailleMax   Float?
+  poidsMin    Float?
+  poidsMax    Float?
+  traitRacial String
+  lore        String
+
+  // Stats de base (les 8 caractéristiques — Chance/Perception comblées, voir écart documenté
+  // dans Bestiaire_et_Races.md et CLAUDE.md, absentes des documents source d'origine).
+  force        Int
+  dexterite    Int
+  vitalite     Int
+  charisme     Int
+  intelligence Int
+  sagesse      Int
+  chance       Int
+  perception   Int
+
+  personnages       Personnage[]
+  classesAutorisees ClasseAutoriseeParRace[]
+  compagnonsLies    CompagnonRef[]
+
+  @@map("races_ref")
+}
+
+/// Catalogue des 7 classes (génériques + exclusives).
+model ClasseRef {
+  id String @id
+
+  nom             String
+  type            String // GENERIQUE | EXCLUSIVE
+  roleCombat      String
+  /// Niveau d'armure maximum autorisé : AUCUNE | LEGERE | MOYENNE | LOURDE
+  armureMax       String
+  aBesoinEcole    Boolean @default(false) // true uniquement pour le Mage (école obligatoire à la création)
+  armesInterdites String // texte libre, résumé des interdictions transversales (cf. Codex des Classes)
+
+  personnages               Personnage[]
+  specialisations           SpecialisationRef[]
+  racesAutorisees           ClasseAutoriseeParRace[]
+  categoriesArmesAutorisees CategorieArmeAutoriseeParClasse[]
+  compagnonsLies            CompagnonClasseLiee[]
+
+  @@map("classes_ref")
+}
+
+/// Table de liaison N-N races <-> classes.
+/// Absence de ligne pour (raceId, classeId) = case "—" du Codex = classe bloquée pour cette race.
+/// deconseille=true = combo listée "✓ (déconseillé)" : reste autorisée, jamais bloquante,
+/// seulement signalée dans l'UI (règle actée dans CLAUDE.md — ne jamais la cacher).
+model ClasseAutoriseeParRace {
+  id String @id @default(cuid())
+
+  raceId      String
+  race        RaceRef   @relation(fields: [raceId], references: [id])
+  classeId    String
+  classe      ClasseRef @relation(fields: [classeId], references: [id])
+  deconseille Boolean   @default(false)
+
+  @@unique([raceId, classeId])
+  @@map("classes_autorisees_par_race")
+}
+
+/// Catégories d'armes génériques autorisées par classe (cf. Codex des Classes).
+/// Valeurs de categorie : ARME_LEGERE | ARME_LOURDE | ARME_JET | ARME_DISTANCE |
+/// INSTRUMENT | OBJET_MAGIQUE | OUTIL_ENGIN | COMPAGNON
+model CategorieArmeAutoriseeParClasse {
+  id String @id @default(cuid())
+
+  classeId  String
+  classe    ClasseRef @relation(fields: [classeId], references: [id])
+  categorie String
+
+  @@unique([classeId, categorie])
+  @@map("categories_armes_autorisees")
+}
+
+/// Catalogue des 38 spécialisations (4-5 par classe, 3 écoles x4 pour le Mage).
+model SpecialisationRef {
+  id String @id @default(cuid())
+
+  classeId         String
+  classe           ClasseRef @relation(fields: [classeId], references: [id])
+  /// Uniquement renseigné pour le Mage : ELEMENTAIRE | NOIRE | BLANCHE
+  ecole            String?
+  nom              String
+  description      String
+  attaqueSignature String
+
+  personnages Personnage[]
+
+  @@unique([classeId, ecole, nom])
+  @@map("specialisations_ref")
+}
+
+// ============================================================
+// CATALOGUE DE RÉFÉRENCE — ÉQUIPEMENT
+// ============================================================
+
+/// Catalogue des objets (armes, armures, accessoires, outils, objets magiques).
+model ObjetRef {
+  id String @id
+
+  nom String
+  /// ARME | ARMURE | BOUCLIER | ACCESSOIRE | OUTIL_ENGIN | INSTRUMENT | OBJET_MAGIQUE
+  type String
+  /// ARME_LEGERE | ARME_LOURDE | ARME_JET | ARME_DISTANCE | INSTRUMENT | OBJET_MAGIQUE | OUTIL_ENGIN
+  /// | BOUCLIER | ARMURE | COLLIER | ANNEAU | BRACELET | CEINTURE | CAPE | CARQUOIS
+  categorie String
+  /// Emplacement d'équipement cible (cf. fiche technique §5) — null si non équipable directement (ex: munitions).
+  emplacement String?
+  /// COMMUN | RUDIMENTAIRE | GOBELIN | UNIQUE
+  palier String
+  /// ACHAT_VILLAGE | SPAWN_GRATUIT | LOOT | CRAFT — distinct du palier, voir écart documenté
+  /// dans Codex_de_l_Equipement.md : seul ACHAT_VILLAGE est vendu en boutique au Sprint 1,
+  /// SPAWN_GRATUIT est assigné automatiquement (stuff verrouillé du Mage).
+  origine String
+  /// LEGERE | MOYENNE | LOURDE — uniquement pour type=ARMURE ou BOUCLIER, cf. écart documenté
+  /// (classification comblée, absente du Codex source).
+  poidsArmure String?
+  /// Prix en po, null si non achetable (spawn/loot/craft).
+  prix Int?
+  /// Bonus offensif/défensif/effet — texte libre (formats hétérogènes dans les Codex sources,
+  /// pas de calcul de combat au Sprint 1).
+  degats      String?
+  defense     String?
+  effet       String?
+  description String
+
+  inventaires InventairePersonnage[]
+
+  @@map("objets_ref")
+}
+
+/// Objets équipés/portés par un personnage.
+model InventairePersonnage {
+  id           String     @id @default(cuid())
+  personnageId String
+  personnage   Personnage @relation(fields: [personnageId], references: [id], onDelete: Cascade)
+  objetId      String
+  objet        ObjetRef   @relation(fields: [objetId], references: [id])
+
+  /// Emplacement effectif occupé (ex: ANNEAU_1, ANNEAU_2, BRACELET_1, BRACELET_2, MAIN_DROITE...).
+  emplacement String
+  quantite    Int    @default(1)
+  /// Prix payé au moment de l'achat (0 si SPAWN_GRATUIT) — sert au remboursement lors du retrait.
+  prixPaye    Int    @default(0)
+
+  createdAt DateTime @default(now())
+
+  @@unique([personnageId, emplacement])
+  @@map("inventaire_personnages")
+}
+
+// ============================================================
+// CATALOGUE DE RÉFÉRENCE — COMPAGNONS
+// ============================================================
+
+/// Catalogue des 10 compagnons. Stats = tableau comparatif du Codex (retenu comme référence,
+/// voir écart documenté dans Codex_des_Compagnons.md).
+model CompagnonRef {
+  id String @id
+
+  nom               String
+  role              String
+  lore              String
+  pv                Int
+  force             Int
+  dexterite         Int
+  vitalite          Int
+  intelligence      Int?
+  capaciteTransport String
+  /// Résumé texte des attaques/effets (pas de modélisation relationnelle — inutile avant le Sprint 3 combat).
+  attaques          String
+
+  /// Prérequis par RACE (cas particulier : la Fée nécessite un Demi-Orc dans l'équipe — une race,
+  /// pas une classe, contrairement aux 3 autres compagnons à prérequis. Écart documenté dans
+  /// Codex_des_Compagnons.md : le Codex source et CLAUDE.md appelaient à tort "Demi-Orc" une classe).
+  /// Null pour tous les autres compagnons (chiens/Mule : aucun prérequis de race ; Élan/Gnome/Sanglier : prérequis de classe).
+  raceRequiseId String?
+  raceRequise   RaceRef? @relation(fields: [raceRequiseId], references: [id])
+
+  classesLiees CompagnonClasseLiee[]
+  equipes      CompagnonEquipe[]
+
+  @@map("compagnons_ref")
+}
+
+/// Classe(s) dont la présence dans l'équipe conditionne l'accès au compagnon.
+/// Chiens/Mule : 3 lignes (Guerrier, Voleur, Barde) — une seule suffit.
+/// Élan/Gnome/Sanglier/Fée : 1 ligne (classe exclusive requise).
+model CompagnonClasseLiee {
+  id String @id @default(cuid())
+
+  compagnonId String
+  compagnon   CompagnonRef @relation(fields: [compagnonId], references: [id])
+  classeId    String
+  classe      ClasseRef    @relation(fields: [classeId], references: [id])
+
+  @@unique([compagnonId, classeId])
+  @@map("compagnon_classes_liees")
+}
+
+/// Compagnon choisi par l'équipe — un seul par équipe (contrainte unique sur equipeId).
+model CompagnonEquipe {
+  id          String       @id @default(cuid())
+  equipeId    String       @unique
+  equipe      Equipe       @relation(fields: [equipeId], references: [id], onDelete: Cascade)
+  compagnonId String
+  compagnon   CompagnonRef @relation(fields: [compagnonId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@map("compagnon_equipes")
 }

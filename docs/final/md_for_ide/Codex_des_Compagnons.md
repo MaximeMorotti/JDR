@@ -4,7 +4,9 @@
 ## Règle d'or[cite: 9, 10]
 Un seul et unique compagnon est autorisé pour toute la compagnie d'aventuriers, quelle que soit sa taille (3 à 4 personnages)[cite: 9, 10]. Le choix se fait donc collectivement, en fonction de la composition de l'équipe (certains compagnons nécessitent une classe précise dans le groupe), des stats recherchées, de la capacité de transport désirée, et du rôle offensif ou utilitaire souhaité[cite: 9, 10].
 
-> **Note :** Les compagnons liés à une classe précise (Élan, Gnome, Sanglier, Fée) ne sont accessibles que si cette classe est bien présente dans l'équipe au moment du choix[cite: 9, 10].
+> **Note :** Les compagnons liés à une classe précise (Élan, Gnome, Sanglier) ne sont accessibles que si cette classe est bien présente dans l'équipe au moment du choix[cite: 9, 10].
+>
+> **⚠️ Écart comblé :** la Fée fait exception — son prérequis ("Demi-Orc requis dans l'équipe") est une **race**, pas une classe (Demi-Orc n'est jamais un nom de classe dans ce jeu). Modélisé séparément des trois autres en base de données.
 
 ---
 

@@ -1,6 +1,8 @@
 # Sprint 1 — Création de personnage et d'équipe de A à Z
 
-Permettre à un joueur (mode local, 1 appareil) de créer une équipe de 1 à 4 personnages (pseudo, race, classe, spécialisation, équipement de départ) avec budget partagé de 100 po, puis de choisir un compagnon — le tout persisté en SQLite via Prisma et rechargeable.
+Permettre à un joueur (mode local, 1 appareil) de créer une équipe de 1 à 4 personnages (pseudo, race, classe, équipement de départ) avec budget partagé de 100 po, puis de choisir un compagnon — le tout persisté en SQLite via Prisma et rechargeable.
+
+> **Correction en cours de sprint :** la spécialisation n'est **pas** un choix fait à la création (voir décision ci-dessous) — elle a été retirée du flux, contrairement à ce que dit le prompt initial.
 
 ---
 
@@ -51,7 +53,7 @@ Remplacement complet du schéma de test par le schéma relationnel du Sprint 1.
 | `Personnage` | Fiche complète d'un PJ | FK vers `Equipe`, unicité pseudo dans l'équipe |
 | `RaceRef` | Catalogue des 5 races | Données statiques (seed), stats de base sur les **8** caractéristiques (Chance/Perception incluses) |
 | `ClasseRef` | Catalogue des 7 classes | Données statiques, FK vers races autorisées, flag `deconseille` sur la liaison (jamais bloquant, voir `ClasseAutoriseeParRace`) |
-| `SpecialisationRef` | Catalogue des 38 spécialisations | FK vers `ClasseRef` |
+| `SpecialisationRef` | Catalogue des 37 spécialisations | FK vers `ClasseRef`. **Purement informatif au Sprint 1** : `Personnage.specialisationId` reste toujours `null` — la spécialisation décrit un futur arbre de compétences (non conçu), pas un choix exclusif à la création. Affichée en lecture seule côté client. |
 | `ObjetRef` | Catalogue des objets (armes, armures, accessoires) | Type, catégorie, palier, prix, stats, **`origine`** (`ACHAT_VILLAGE \| SPAWN_GRATUIT \| LOOT \| CRAFT`), **`poidsArmure`** (`LEGERE \| MOYENNE \| LOURDE`, nullable hors armures) |
 | `InventairePersonnage` | Objets équipés/portés par un personnage | FK vers `Personnage` + `ObjetRef`, emplacement |
 | `CompagnonRef` | Catalogue des 10 compagnons | Stats, prérequis classe/race |
@@ -76,12 +78,12 @@ Script de seed complet peuplant la base SQLite depuis les données des Codex Mar
 
 | Entité | Source | Nb d'entrées |
 |---|---|---|
-| 5 races | Bestiaire_et_Races.md | Humain, Elfe, Nain, Demi-Orc, Mage — avec stats de base (6 carac.) |
+| 5 races | Bestiaire_et_Races.md | Humain, Elfe, Nain, Demi-Orc, Mage — avec stats de base (8 carac., Chance/Perception comblées) |
 | 7 classes | Codex_des_Classes.md | Guerrier, Voleur, Barde, Mage, Berserker, Ingénieur, Chasseur sylvestre |
-| 38 spécialisations | Codex_des_Classes.md | 4-5 par classe, Mage ventilé par école |
+| 37 spécialisations | Codex_des_Classes.md | 4-5 par classe, Mage ventilé par école. Informatif uniquement, voir écart |
 | Restrictions race ↔ classe | Codex_des_Classes.md (matrice) | Liens N-N |
-| ~60 objets achetables/lootables | Codex_de_l_Equipement.md | Armes, armures, accessoires avec prix/stats |
-| 10 compagnons | Codex_des_Compagnons.md | Avec stats, prérequis, capacité de transport |
+| ~73 objets achetables/lootables/craftables | Codex_de_l_Equipement.md | Armes, armures, accessoires avec prix/stats, taggés origine + poids d'armure |
+| 10 compagnons | Codex_des_Compagnons.md | Avec stats, prérequis (classe ou race), capacité de transport |
 | Catégories d'armes par classe | Codex_des_Classes.md | Interdictions transversales |
 
 ---
@@ -139,7 +141,7 @@ Routes de gestion des personnages :
 
 | Route | Description |
 |---|---|
-| `POST /api/equipes/:equipeId/personnages` | Créer un personnage (pseudo, race, classe, spécialisation) |
+| `POST /api/equipes/:equipeId/personnages` | Créer un personnage (pseudo, race, classe — pas de spécialisation, voir écart) |
 | `GET /api/equipes/:equipeId/personnages/:id` | Consulter la fiche complète |
 | `PATCH /api/equipes/:equipeId/personnages/:id` | Modifier un personnage |
 | `DELETE /api/equipes/:equipeId/personnages/:id` | Supprimer un personnage |
@@ -209,7 +211,7 @@ Client HTTP (fetch wrapper) pour communiquer avec le backend (base URL `http://l
 
 Routeur hash simple avec les étapes :
 1. **Accueil** — Créer/charger une équipe
-2. **Infos de base** — Pseudo, race, classe, spécialisation (par personnage)
+2. **Infos de base** — Pseudo, race, classe (par personnage) ; spécialisations affichées en aperçu, non sélectionnables
 3. **Équipement** — Boutique de départ avec budget partagé
 4. **Compagnon** — Choix du compagnon d'équipe
 5. **Récapitulatif** — Fiche d'équipe complète
@@ -230,8 +232,10 @@ Page d'accueil : créer une nouvelle équipe ou charger une existante.
      - **Disponible** (case ✓ non déconseillée) : cliquable normalement.
      - **Disponible mais déconseillée** (ex: Mage-race → Guerrier) : cliquable, badge d'avertissement visible ("déconseillé") + micro-explication au survol/tap (ex: "Force et Vitalité faibles pour ce choix"). **Ne jamais la cacher** — règle actée dans `CLAUDE.md`.
      - **Bloquée** (case "—", ex: Nain → Barde... non, Nain n'a pas de case vide sauf classes exclusives d'autres races) : classe grisée/barrée, non cliquable, avec l'explication courte ("réservé aux Elfes").
-3. **Au clic sur une classe disponible :** la sélection se confirme (race + classe verrouillées pour ce personnage), l'écran redescend vers le choix de la spécialisation (4-5 options, ou école puis spécialisation pour le Mage).
+3. **Au clic sur une classe disponible :** la sélection se confirme (race + classe verrouillées pour ce personnage), l'écran redescend vers un **aperçu en lecture seule** des 4-5 spécialisations de la classe (ou des 3 écoles pour le Mage) — **aucune sélection possible**. Voir écart ci-dessous : la spécialisation n'est pas un choix à la création, elle décrit le futur arbre de compétences (non conçu) que le personnage débloquera en progressant.
 4. Calcul dynamique en temps réel des stats affichées (base raciale, la classe n'ajoute pas de bonus de stats dans les Codex actuels — seulement des restrictions d'équipement).
+
+> **⚠️ Écart identifié en cours de sprint — spécialisation ≠ choix à la création.** Le prompt Sprint 1 listait la spécialisation comme un champ à choisir au même titre que race/classe. Erreur de conception repérée pendant l'implémentation : chaque spécialisation définit une unique attaque signature au sein d'un arbre de compétences par classe (4-5 spécialisations = 4-5 branches), pas une case exclusive cochée une fois pour toutes. Cet arbre de compétences (quelles attaques/compétences se débloquent, dans quel ordre, avec quels prérequis) **n'a jamais été conçu** — ni dans les Codex, ni dans les échanges de conception. Décision actée avec l'utilisateur : retirer le choix du Sprint 1, afficher les spécialisations en lecture seule, laisser `Personnage.specialisationId` toujours `null`, et concevoir l'arbre de compétences dans un sprint ultérieur avant de le brancher.
 
 Ce flux évite un écran "race" puis un écran "classe" séparés (trop de clics/pages) tout en gardant l'information dense mais optionnelle (repliée par défaut).
 
