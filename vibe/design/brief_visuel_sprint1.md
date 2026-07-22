@@ -70,11 +70,260 @@ Recette CSS retenue après plusieurs allers-retours (trop sombre → trop brilla
   pour être visibles mais discrètes (a été réduit une fois après avoir été jugé "trop").
 - `font-size: 3.6rem` sur `h1` (agrandi une fois à la demande).
 
-### Prochaine sous-étape de l'étape 1 (pas encore commencée)
+Commité dans `703470b` (branche `feat/sprint1-creation-equipe`).
 
-L'écran de sélection de race (étoile ornementale + cadres thématiques par matière + effet 3D +
-graphique radar au clic) **n'a pas encore été construit** — seuls la palette et les polices sont
-validées pour l'instant. C'est la suite immédiate.
+### Sous-étape "étoile de race" — construite, pas encore commitée
+
+L'écran de sélection de race est fait :
+- `client/src/components/etoile-liens.ts` — génère le SVG du hub central + 5 branches +
+  médaillons (motif original, pas de reprise de la croix de référence sous licence).
+- Cadres thématiques par matière (CSS, dégradés coniques + ombres pour l'effet 3D/embossé) :
+  `.cadre--metal` (Nain), `.cadre--bois` (Elfe), `.cadre--bronze` (Humain), `.cadre--os`
+  (Demi-Orc), `.cadre--obsidienne` (Mage) — dans `style.css`.
+- Positionnement des 5 points en cercle via l'astuce CSS `rotate() translate() rotate(-1*angle)`
+  (pas de calcul JS de trigonométrie nécessaire pour ce positionnement précis).
+- Au clic sur une race : layout 2 colonnes (`client/src/pages/creation-personnage.ts`,
+  fonction `afficherDetailRace`) — portrait à gauche, à droite un graphique radar
+  (`client/src/components/radar-stats.ts`, SVG octogonal façon le radar du Bestiaire, échelle
+  fixe 0-20) puis en dessous les classes disponibles avec icône (`client/src/components/
+  icones-classes.ts`, 7 icônes SVG dessinées en interne).
+- Responsive : 2 colonnes au-delà de 720px, empilé en dessous (vérifié par mesure DOM directe,
+  le rendu visuel via capture d'écran de ce navigateur outil est trompeur au-delà de ~500px de
+  large — se fier aux mesures `getBoundingClientRect`/`getComputedStyle`, pas seulement au
+  screenshot, pour vérifier le responsive large écran).
+- Testé de bout en bout dans le navigateur (sélection race → classe → création → transition →
+  page équipe), aucune erreur console.
+
+**Pas encore fait** : nettoyage des classes CSS mortes de l'ancien layout (`.carte-race`,
+`.detail-race`, `.detail-race-entete`, `.portrait-race`, `.portrait-race-grand` — remplacées mais
+pas supprimées de `style.css`, sans impact fonctionnel).
+
+### ✅ RÉSOLU — cadres réels intégrés (remplace toute la section "Itération 3" CSS ci-dessous)
+
+Les 4 images de cadre fournies par l'utilisateur ont été déposées dans `docs/img/cadre/` (dossier
+**singulier**, pas `cadres/`) sous les noms `cadre_elf.png`, `cadre_nain.png`, `cadre mage.png`
+(avec un espace, attention), `cadre_demi-orc.png`. **Décision actée : on utilise ces vraies
+images plutôt qu'une recréation CSS des matières** (bien plus fidèle).
+
+Traitement effectué :
+- `client/scripts/detourer-cadres.mjs` (script one-off, sharp réinstallé puis désinstallé après
+  usage) : détoure le fond blanc de chaque image en transparence (seuil doux 222-250 sur le canal
+  minimum RGB, pour un anti-aliasing propre en gardant l'ivoire du cadre Elfe intact — vérifié :
+  alpha=0 au centre et aux coins de chaque image exportée), redimensionne à 700px de large,
+  exporte en WebP dans `client/public/img/cadres/{elfe,nain,mage,demi-orc}.webp`.
+- `client/src/pages/creation-personnage.ts` : nouvelle structure de marquage — pour l'Humain
+  (bronze), un seul `<img>` circulaire comme avant (`.cadre--bronze`) ; pour les 4 autres, DEUX
+  `<img>` superposées dans `.cadre-race-etoile.cadre--image` : `.portrait-dans-cadre` (portrait,
+  60% de la taille du cadre, centré, cerclé) en dessous, `.image-cadre` (le PNG de cadre réel,
+  100% de la taille, `object-fit: contain`) au-dessus, pointer-events none.
+- `client/src/style.css` : toutes les anciennes textures CSS approximatives (`.cadre--pierre`,
+  `.cadre--bois`, `.cadre--os`, `.cadre--obsidienne` — dégradés coniques/radiaux) ont été
+  **supprimées**, remplacées par `.cadre--image` (juste un `filter: drop-shadow` pour l'ombre/glow
+  au survol et à la sélection, suit le contour réel du PNG plutôt qu'un rectangle). Variables CSS
+  `--mat-basalte-*` et `--mat-bois-*` (blanc bouleau) ajoutées lors d'une tentative CSS
+  intermédiaire, **actuellement inutilisées** puisqu'on est passé aux vraies images — à nettoyer
+  si confirmé qu'on ne reviendra pas à une approche CSS.
+- Testé en navigateur : les 4 cadres s'affichent correctement avec transparence réelle (fond
+  sombre de l'app visible à travers, pas de blanc résiduel), portraits bien positionnés dedans,
+  rotation de la roue + agrandissement + parchemin fonctionnent toujours normalement avec ces
+  nouveaux cadres. Aucune erreur console.
+
+**Pas encore fait** : l'objet-position du portrait dans le cadre (60% taille, centré) n'a été
+ajusté finement que par défaut (`object-position: 50% 15%`, avec une exception Demi-Orc à
+`24% 18%` héritée de l'itération précédente) — à vérifier/peaufiner à l'usage si un portrait
+déborde mal du trou du cadre pour une race donnée. Le trou de l'octogone Nain n'est pas
+exactement suivi par le portrait (resté circulaire) — laisse de petits coins transparents visibles
+aux 4 angles de l'octogone, jugé acceptable pour l'instant mais à revoir si l'utilisateur le
+signale.
+
+### ✅ RÉSOLU — parchemin 100% CSS amélioré (image réelle essayée puis abandonnée) + spécialisations en grille 2×2 avec icônes
+
+Aller-retour sur le fond de `.etiquette-parchemin` : une texture réelle avait été fournie
+(`docs/img/background/parchemin.jpg`), détourée via `client/scripts/detourer-parchemin.mjs` et
+posée en `background-image` à 100%×100%. **Rejeté par l'utilisateur** : détourage de mauvaise
+qualité, et l'image (portrait ~572×1024) étirée en `100% 100%` déformait visiblement le panneau
+plus large. Décision : **revenir à une texture 100% CSS** (comme avant l'essai), mais en
+l'améliorant — l'utilisateur a supprimé le fichier source (`docs/img/background/`) entre-temps,
+donc plus d'image du tout désormais. `client/public/img/parchemin.webp` et
+`detourer-parchemin.mjs` supprimés.
+
+Nouvelle version CSS de `.etiquette-parchemin` (`style.css`) :
+- `clip-path: polygon(...)` — bords déchirés irréguliers sur les 4 côtés (léger zigzag, quelques
+  points en amplitude ~1-3% du panneau), plus riche que la première tentative CSS.
+- `background` : empilement de calques — 4 `radial-gradient` sombres aux coins (effet "brûlé"),
+  4 `radial-gradient` de tache plus douces à divers endroits (mottling), un
+  `repeating-linear-gradient` fin à 96° en overlay très discret (grain/fibres du papier), et un
+  `linear-gradient` de fond en tons parchemin (crème → tan → doré, `#ecd9ac` à `#cfab74`).
+- `box-shadow: inset ...` (deux couches, sombre) pour assombrir légèrement le pourtour intérieur
+  en plus du `clip-path`, renforçant l'effet de vieux papier.
+- `filter: drop-shadow(...)` conservé pour l'ombre portée du panneau sur le fond de la page.
+
+Vérifié en navigateur (viewport 520px, Mage) : bords déchirés visibles en haut/bas, coins
+assombris, aucun étirement ni artefact de détourage, texte parfaitement lisible. Aucune erreur
+console.
+
+**Leçon retenue** : ne pas remplacer un rendu CSS validé par une image réelle sans valider le
+rendu final (proportions, qualité de détourage) avant de considérer l'étape terminée — demander si
+un doute existe plutôt que de committer directement.
+
+Séparément (même passage) : **`#zone-specs` sorti du grid 2 colonnes** — dans
+`creation-personnage.ts`, la div `#zone-specs` (aperçu des spécialisations) est maintenant un
+**sibling** de `.parchemin-corps` (qui ne contient plus que radar + classes), avec sa propre
+classe `.zone-specs-pleine-largeur` — occupe donc toute la largeur du parchemin au lieu d'être
+coincée dans une des deux colonnes. Et **grille de spécialisations en 2×2** ("comme le logo
+Windows") : `.grille-specs` passée de `grid-template-columns: repeat(auto-fill, minmax(240px,1fr))`
+à `grid-template-columns: repeat(2, 1fr)` (1 colonne sous 480px), cartes bien plus grandes et
+lisibles. Et **icône par spécialisation** : nouveau fichier
+`client/src/components/icones-specialisations.ts`, 37 icônes SVG (trait, dessinées à la main
+comme celles des classes), une par spécialisation, clé = nom (`Record<string,string>`) sauf
+collision "Traqueur" (existe chez Berserker ET Chasseur sylvestre) résolue par clé composite
+`classeId:nom`. Fonction exportée `iconeSpecialisation(classeId, nom)`. Intégrée dans `carteHtml`
+de `creation-personnage.ts` via un wrapper `.entete-carte-spec` (icône + nom sur la même ligne,
+au-dessus de la description). Couleur d'icône sur fond parchemin : `.etiquette-parchemin
+.icone-spec { color: #7a2f14; }`.
+
+Vérifié en navigateur (viewport 520px, race Mage → classe Mage) : grille 2×2 avec icônes
+(vent/montagne/goutte/flamme pour l'École Élémentaire) bien rendue. Aucune erreur console.
+`npx tsc --noEmit` propre.
+
+**Pas encore fait** : nettoyage des variables CSS `--mat-basalte-*`/`--mat-bois-*` (héritées de
+la tentative CSS abandonnée, toujours inutilisées).
+
+**Historique (abandonné, ne pas reprendre) :** l'utilisateur avait d'abord demandé une recréation
+CSS pure des 4 matières (métal/bois/os/obsidienne gravés), avant de fournir les vraies images de
+référence ci-dessus et de trancher pour les utiliser directement à la place. Le détail de cette
+tentative CSS (remplacée, code retiré de `style.css`) reste décrit ci-dessous à titre indicatif
+seulement :
+
+L'utilisateur avait montré 4 images de référence qu'il voulait utiliser **directement comme
+cadres réels** (PNG détourés, superposés aux portraits) si la recréation CSS n'était pas assez
+fidèle. Ce sont des cadres très détaillés et ouvragés :
+- **Elfe** : cercle ivoire/crème à motifs celtiques entrelacés (nœuds), avec du lierre vert et des
+  feuilles enroulées autour.
+- **Nain** : octogone en pierre grise sombre avec runes gravées, et une gemme sertie (rubis,
+  saphir, émeraude...) à chaque sommet de l'octogone.
+- **Mage** : anneau cristallin violet/noir facetté (façon obsidienne géologique, pas pixelisé),
+  avec runes gravées lumineuses violettes et des petites chaînes métalliques reliant les segments.
+- **Demi-Orc** : cercle formé d'os et d'ossements assemblés, avec plusieurs crânes d'animaux
+  (cornes, crocs) intercalés, attachés par des lanières de cuir et quelques chaînes.
+
+**Action demandée à l'utilisateur (en attente)** : déposer ces 4 fichiers dans
+`docs/img/cadres/` sous les noms `elfe.png`, `nain.png`, `mage.png`, `demi-orc.png`. Une fois
+reçus : détourer le fond (transparence) si besoin, optimiser en WebP comme pour les portraits
+(voir `client/scripts/optimiser-images.mjs`), puis les superposer aux portraits dans l'étoile
+(`client/src/pages/creation-personnage.ts` + `client/src/style.css`, classes `.cadre--*`) à la
+place des tentatives de recréation CSS pure de l'itération 3 ci-dessous (qui restent en place en
+attendant, mais seront probablement remplacées).
+
+**Ne pas oublier de vérifier au prochain démarrage de session si ces fichiers sont arrivés** dans
+`docs/img/cadres/` avant de continuer le travail CSS sur les matières.
+
+### Itération 3 sur l'étoile — EN COURS, pas terminée (contexte proche de la limite)
+
+Après l'itération 2 (voir plus bas), nouveau retour utilisateur avec 5 images de référence
+(décrites ici en mots, images non stockées dans le repo — demander à l'utilisateur de les
+refournir si besoin de les revoir précisément) :
+
+**1. Bug de rotation — CORRIGÉ.** Passer d'Humain à Elfe (ou toute paire éloignée) faisait parfois
+un détour d'un demi-tour complet au lieu du chemin le plus court. Cause : `--rotation-globale`
+était recalculée comme une valeur absolue (`180 - angle`) à chaque clic, ce qui peut être numériquement
+très loin de la valeur courante même si visuellement équivalent (mod 360). **Fix appliqué** :
+`client/src/pages/creation-personnage.ts`, fonction `tournerRoueVers()` — calcule maintenant le
+delta le plus court via `(((cible - rotationCourante) % 360) + 540) % 360 - 180` et accumule dans
+une variable `rotationCourante` (pas mod 360), au lieu de sauter à une valeur absolue.
+
+**2. Taille et espacement — CORRIGÉ.** Cadres 150px → 168px (~2x la taille d'origine 84px), rayon
+des branches 165px → 210px (tiges de l'étoile allongées pour éloigner les portraits), conteneur
+460px → 560px. Fichiers : `client/src/components/etoile-liens.ts` (constantes `RAYON_LIGNE`,
+`CENTRE`, viewBox), `client/src/style.css` (`.conteneur-etoile`, `.point-race`, `.cadre-race-etoile`).
+
+**3. Parchemin — CORRIGÉ.** Était trop étroit (max-width 520px) et sans style "papier brûlé".
+Maintenant : max-width 900px, bords irréguliers via `clip-path: polygon(...)` (forme déchirée, pas
+un rectangle net), taches de brûlé aux coins/bas via `radial-gradient` sombres superposées, contenu
+réorganisé en 2 colonnes (`.parchemin-corps`, radar à gauche / classes à droite) pour mieux utiliser
+la largeur plutôt qu'empiler tout en une colonne étroite.
+
+**4. Cadres de matière — PARTIELLEMENT refait, PUIS remis en question par l'utilisateur (voir
+itération 3 ci-dessous, dernière demande pas encore implémentée) :**
+
+Dans l'itération 2, j'avais remplacé les couleurs unies par :
+- Nain : passé de "métal" à un **octogone en pierre** grise tachetée (`clip-path` polygon octogonal,
+  `.cadre--pierre`)
+- Elfe : bois avec encoches sombres façon entailles (`repeating-conic-gradient` sur le bois)
+- Demi-Orc : anneau à segments répétés façon "chapelet d'articulations osseuses"
+  (`repeating-conic-gradient` par tranches de 30°)
+- Mage : base vitreuse + fentes lumineuses violettes répétées (`repeating-conic-gradient` fines
+  fentes + `radial-gradient` glossy)
+
+**Nouveau retour (5 images de référence fournies, pas encore implémenté)** — l'utilisateur a
+regardé le rendu et veut aller plus loin dans le détail visuel, avec des références précises :
+
+- **Bois (Elfe)** : PAS un cadre de rondins bruns rustiques (image de référence 1 : cadre en bûches
+  avec nœuds, façon rustique/log-cabin — **à ne pas suivre tel quel**, juste une indication du
+  type d'objet). Voulu : **plus elfique**, **bois blanc pur** (bouleau clair, pas brun), avec
+  **petites tiges et feuilles** décoratives sur le pourtour (image de référence 2 : cadre ouvragé
+  ivoire/crème avec volutes sculptées — s'en inspirer pour le niveau de finesse/ouvragé, mais en
+  version "tiges et feuilles elfiques" plutôt que volutes baroques).
+- **Nain** : **pas besoin d'un carré/octogone strict**, la forme importe peu, mais matière =
+  **pierre sombre, un peu basalte**, avec des **gravures naines en relief saillant** (embossées,
+  pas juste une texture plate). Actuellement c'est une pierre grise claire tachetée sans relief
+  gravé — à corriger : assombrir vers du basalte, ajouter un vrai relief de gravure (pas juste des
+  taches).
+- **Mage** : s'inspirer du bloc "obsidienne" de Minecraft (image de référence 3 : cube violet-noir
+  cristallin/mordoré, texture minérale dense) **mais surtout pas pixelisé** — une version lisse/
+  organique de ce même esprit visuel (violet-noir profond, minéral, pas de facettes dures en
+  triangle façon "covering de voiture" comme avant). Ajouter des **runes gravées qui brillent**
+  dedans (image de référence 4 : sceau/cercle magique noir avec runes et symboles blancs
+  lumineux, glyphes variés autour d'un cercle — s'en inspirer pour le style des runes, pas copier
+  le motif exact). Forme libre, ne pas forcément rester circulaire.
+- **Demi-Orc** : le plus gros changement demandé. **Pas une simple couleur "os"** avec quelques
+  mouchetures — l'utilisateur veut un **véritable amas de carcasses/os détaillé** : vrais os,
+  crânes, dents, cornes visibles (image de référence 5 : empilement réaliste de crânes et
+  ossements d'animaux, très détaillé, texture organique complexe). C'est la demande la plus
+  ambitieuse en CSS pur — envisager plusieurs os/crânes stylisés distincts autour de l'anneau
+  (silhouettes simplifiées mais reconnaissables comme des os/crânes, pas juste une teinte).
+- **Consigne générale** : **varier les formes** des cadres entre les races (pas tous des cercles
+  ou tous la même forme) — seul l'Humain (bronze) doit rester **lisse et rond**, garanti comme
+  ancrage "normal" au milieu des formes plus organiques/travaillées des autres.
+
+**Point mineur en suspens (pas grave, à vérifier plus tard)** : lors d'une vérification de layout
+en cours d'itération, mesure DOM a montré le conteneur de l'étoile pas parfaitement centré à une
+largeur de viewport donnée (`left: 20px` avec un espace différent à droite) — écart mineur,
+pas encore diagnostiqué ni corrigé, à surveiller si visible à l'usage.
+
+**Prochaine action immédiate** : reprendre l'implémentation CSS des 4 matières (bois blanc
+elfique, basalte gravé nain, obsidienne lisse runique mage, amas d'os détaillé demi-orc) selon
+la description ci-dessus, en gardant en tête que ce sont des approximations CSS (pas de vraies
+textures/images sourcées) — être honnête avec l'utilisateur sur les limites de ce qui est
+réalisable en CSS pur si le rendu n'est toujours pas satisfaisant après cette passe.
+
+### Itération 2 sur l'étoile (retour utilisateur après premier essai)
+
+Corrections apportées :
+- **Recadrage Demi-Orc** : `object-position: 24% 18%` spécifique (le perso était décentré sur la
+  gauche de l'image source, le recadrage par défaut `top`/centre tombait sur le vide). Réglage
+  ad-hoc par `data-id` dans `style.css` (`.point-race[data-id="demi-orc"] img`).
+- **Taille des portraits doublée** : cadres 84px → 150px, conteneur 340px → 460px, rayon des
+  branches 140px → 165px (`etoile-liens.ts` + `style.css`).
+- **Textures de matière remplacées** (étaient des couleurs unies en dégradé conique, jugé pas
+  assez "relief") : métal (Nain) = anneau brossé + rainures concentriques ; bois (Elfe) = veinage
+  par bandes obliques irrégulières ; os (Demi-Orc) = mouchetures/porosité (radial-gradients
+  éparpillés) ; obsidienne (Mage) = facettes vitreuses anguleuses (conic-gradient à paliers durs)
+  + lueur violette. **Seul le bronze (Humain) reste lisse**, comme demandé explicitement.
+- **Nouvelle mécanique d'interaction** (remplace le "layout 2 colonnes qui apparaît en dessous") :
+  au clic sur une race, **toute la roue tourne** pour amener la race choisie en bas (180°), où son
+  cercle **grossit** (`transform: scale(1.55)`), puis une **étiquette parchemin** verticale se
+  déroule en dessous (`.etiquette-parchemin`, fond crème/parchemin, texte sépia, animation
+  `scaleY` depuis le haut). Contient : nom, lore, trait racial, radar (recoloré pour fond clair),
+  classes disponibles avec icônes (recolorées pour fond clair).
+  - Rotation synchronisée de la roue (SVG + points) via une **custom property CSS enregistrée**
+    `@property --rotation-globale` (`syntax: "<angle>"`), portée par `.conteneur-etoile` et lue
+    dans le `transform` de chaque `.point-race` ET de `.etoile-svg` — permet une transition fluide
+    d'angle sans recalcul JS, et garde chaque portrait bien droit malgré la rotation d'ensemble
+    (grâce à la contre-rotation déjà en place dans l'astuce CSS de positionnement circulaire).
+  - Le portrait n'est plus dupliqué dans le panneau de détail (il est déjà visible en grand dans
+    la roue) — l'étiquette parchemin ne contient que texte + radar + classes.
+- Testé de bout en bout dans le navigateur après ces changements, aucune erreur console.
 
 ## Le brief visuel donné par l'utilisateur (avec croquis photo)
 

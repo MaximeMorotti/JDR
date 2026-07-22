@@ -6,41 +6,62 @@ RPG tactique narratif avec combat au tour par tour sur grille, et un MJ IA qui a
 JDR/
 ├── client/          # Frontend (Vite + TypeScript)
 ├── server/          # Backend (Node + TypeScript + Prisma)
-├── docs/            # Codex de référence (PDF) : bestiaire, classes, équipement, craft, compagnons
+├── docs/            # Codex de référence : bestiaire, classes, équipement, craft, compagnons
+├── vibe/            # Plans de sprint, briefs de conception (implémentation + visuel)
+├── demarrer.bat     # Lance client + serveur en un clic (Windows)
+├── CLAUDE.md        # Contexte projet (règles de jeu, conventions, écarts documentés)
 ├── README.md
 └── .gitignore
 
 ## 🛠️ Stack technique
 
-- **Langage** : TypeScript de bout en bout (client + serveur)
-- **Frontend** : Vite
-- **Backend** : Node.js + tsx
+- **Langage** : TypeScript strict de bout en bout (client + serveur)
+- **Frontend** : Vite, vanilla TS (pas de framework)
+- **Backend** : Node.js + Express + tsx
 - **Base de données** : SQLite (dev local, sans serveur à installer), via Prisma comme ORM
-- **Agent MJ** (à venir) : API Claude (Anthropic)
+- **Agent MJ** (à venir, Sprint 5) : API Claude (Anthropic), côté serveur uniquement
 
 ## 🚀 Lancer le projet en local
 
-### Client
+### Démarrage rapide (Windows)
+
+Double-cliquer sur **`demarrer.bat`** à la racine du projet : ouvre le serveur et le client
+chacun dans sa propre fenêtre de terminal. Nécessite d'avoir déjà installé les dépendances une
+première fois (voir ci-dessous) et la base de données initialisée.
+
+### Installation initiale (à faire une seule fois)
+
+```bash
+cd server
+npm install
+npx prisma migrate dev   # crée la base SQLite et applique les migrations
+npx prisma db seed       # peuple le catalogue (races, classes, objets, compagnons)
+
+cd ../client
+npm install
+```
+
+### Lancer manuellement (si besoin d'un contrôle plus fin)
+
+**Serveur** (API, `http://localhost:3000`) :
+```bash
+cd server
+npm run dev
+```
+
+**Client** (interface web, `http://localhost:5173`) :
 ```bash
 cd client
-npm install
 npm run dev
 ```
-→ accessible sur `http://localhost:5173`
-
-### Serveur
-```bash
-cd server
-npm install
-npm run dev
-```
-→ affiche `Serveur JDR — prêt.` dans le terminal
 
 ### Base de données
+
 ```bash
 cd server
-npx prisma migrate dev --name init
-npx prisma studio   # interface visuelle pour explorer la base
+npx prisma migrate dev --name <nom_de_la_migration>
+npx prisma db seed        # à relancer après toute modification de prisma/seed.ts
+npx prisma studio          # interface visuelle pour explorer la base
 ```
 
 ## 📋 Roadmap

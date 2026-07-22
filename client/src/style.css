@@ -21,12 +21,14 @@
   --warn-soft: rgba(201, 138, 58, 0.16);
 
   /* Thèmes matière pour les cadres de portrait (race, etc.) */
-  --mat-metal-base: #8a95a3;
-  --mat-metal-dark: #3d4750;
-  --mat-metal-light: #d4dce2;
-  --mat-bois-base: #6b4a2a;
-  --mat-bois-dark: #33220f;
-  --mat-bois-light: #b0895a;
+  --mat-basalte-base: #3a3a40;
+  --mat-basalte-dark: #16151a;
+  --mat-basalte-light: #6a6a72;
+  --mat-basalte-gravure: #b8c0c8;
+  --mat-bois-base: #e8e0cc;
+  --mat-bois-dark: #c9bd9c;
+  --mat-bois-light: #faf6ea;
+  --mat-bois-feuille: #8aa06a;
   --mat-bronze-base: #b0813f;
   --mat-bronze-dark: #5c4118;
   --mat-bronze-light: #ecc978;
@@ -401,22 +403,37 @@ button {
 
 /* ---------- Spécialisations ---------- */
 
+/* 2 colonnes fixes (façon logo Windows : 2 en haut, 2 en bas) plutôt qu'une grille auto-fill —
+   les cartes remplissent toute la largeur du parchemin, plus lisibles. */
 .grille-specs {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+
+@media (max-width: 480px) {
+  .grille-specs { grid-template-columns: 1fr; }
 }
 
 .carte-spec {
   border: 1px solid var(--border);
   background: var(--bg-card);
   border-radius: 10px;
-  padding: 14px;
+  padding: 16px;
   cursor: pointer;
 }
 .carte-spec:hover { border-color: var(--gold-border); }
 .carte-spec.selectionnee { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold); }
-.carte-spec .attaque { font-size: 0.82rem; color: var(--text-faint); margin-top: 6px; }
+.carte-spec .attaque { font-size: 0.82rem; color: var(--text-faint); margin-top: 8px; }
+
+.entete-carte-spec {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.entete-carte-spec .icone-spec { color: var(--gold); flex-shrink: 0; }
+.entete-carte-spec strong { font-size: 1.02rem; }
 
 .groupe-ecole {
   margin-bottom: 18px;
@@ -714,3 +731,382 @@ button {
   padding: 14px 28px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
 }
+
+/* ================================================================
+   Étoile de sélection de race
+   ================================================================ */
+
+@property --rotation-globale {
+  syntax: "<angle>";
+  inherits: true;
+  initial-value: 0deg;
+}
+
+.conteneur-etoile {
+  position: relative;
+  width: 560px;
+  height: 560px;
+  max-width: 100%;
+  margin: 24px auto;
+  perspective: 1200px;
+  --rotation-globale: 0deg;
+}
+
+.etoile-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.6));
+  transform: rotate(var(--rotation-globale));
+  transition: transform 0.7s cubic-bezier(0.65, 0, 0.35, 1);
+  transform-origin: center;
+}
+
+.etoile-branche {
+  stroke: var(--gold);
+  stroke-width: 2.5;
+  opacity: 0.55;
+}
+
+.etoile-medaillon {
+  fill: var(--gold);
+  stroke: #4a3212;
+  stroke-width: 1;
+  opacity: 0.85;
+}
+
+.etoile-hub {
+  fill: var(--bg-panel);
+  stroke: none;
+}
+
+.etoile-hub-contour {
+  fill: none;
+  stroke: #4a3212;
+  stroke-width: 2;
+}
+
+.etoile-hub-gemme {
+  fill: #ecc978;
+  stroke: #4a3212;
+  stroke-width: 1;
+}
+
+.point-race {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 168px;
+  height: 168px;
+  margin: -84px 0 0 -84px;
+  transform: rotate(calc(var(--angle) + var(--rotation-globale))) translate(0, -210px) rotate(calc(-1 * (var(--angle) + var(--rotation-globale))));
+  transition: transform 0.7s cubic-bezier(0.65, 0, 0.35, 1);
+  text-align: center;
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
+  color: inherit;
+  z-index: 1;
+}
+
+.point-race.selectionnee { z-index: 5; }
+
+.cadre-race-etoile {
+  display: block;
+  width: 168px;
+  height: 168px;
+  position: relative;
+  transition: transform 0.5s cubic-bezier(0.65, 0, 0.35, 1), box-shadow 0.5s ease;
+}
+
+/* Anneau bronze lisse (Humain uniquement) — généré en CSS, pas d'illustration de cadre. */
+.cadre--bronze {
+  border-radius: 50%;
+  padding: 13px;
+  box-shadow:
+    0 6px 16px rgba(0, 0, 0, 0.65),
+    inset 0 2px 2px rgba(255, 255, 255, 0.3),
+    inset 0 -3px 5px rgba(0, 0, 0, 0.5);
+}
+
+.cadre--bronze::after {
+  content: "";
+  position: absolute;
+  inset: 13px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+}
+
+.cadre--bronze img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  object-position: 50% 12%;
+  display: block;
+  box-shadow: inset 0 0 16px rgba(0, 0, 0, 0.6);
+}
+
+/* Cadres illustrés (Nain, Elfe, Mage, Demi-Orc) : vraie image de cadre superposée au portrait,
+   voir docs/img/cadre/ + client/scripts/detourer-cadres.mjs. */
+.cadre--image {
+  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.6));
+}
+
+.portrait-dans-cadre {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 60%;
+  height: 60%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  object-fit: cover;
+  object-position: 50% 15%;
+  display: block;
+}
+
+.point-race[data-id="demi-orc"] .portrait-dans-cadre { object-position: 24% 18%; }
+
+.image-cadre {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+  display: block;
+}
+
+.point-race:hover .cadre-race-etoile {
+  transform: rotateY(10deg) rotateX(-6deg) scale(1.08);
+  box-shadow:
+    0 10px 20px rgba(0, 0, 0, 0.7),
+    inset 0 2px 3px rgba(255, 255, 255, 0.4),
+    inset 0 -3px 6px rgba(0, 0, 0, 0.5),
+    0 0 18px rgba(204, 159, 63, 0.4);
+}
+
+.point-race.selectionnee .cadre-race-etoile {
+  transform: scale(1.55);
+  box-shadow:
+    0 16px 34px rgba(0, 0, 0, 0.75),
+    inset 0 2px 3px rgba(255, 255, 255, 0.4),
+    0 0 0 3px var(--gold),
+    0 0 30px rgba(204, 159, 63, 0.5);
+}
+
+/* Les cadres illustrés n'ont pas de fond/padding : le halo doit suivre le contour réel de
+   l'image (drop-shadow), pas un rectangle (box-shadow) qui apparaîtrait dans les zones ajourées. */
+.point-race:hover .cadre--image {
+  box-shadow: none;
+  filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.6)) drop-shadow(0 0 14px rgba(204, 159, 63, 0.5));
+}
+
+.point-race.selectionnee .cadre--image {
+  box-shadow: none;
+  filter: drop-shadow(0 14px 26px rgba(0, 0, 0, 0.7)) drop-shadow(0 0 22px rgba(204, 159, 63, 0.7));
+}
+
+.nom-race-etoile {
+  display: block;
+  margin-top: 10px;
+  font-family: var(--moyen);
+  font-size: 0.95rem;
+  color: var(--text-dim);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+  transition: color 0.3s, opacity 0.3s;
+}
+
+.point-race:hover .nom-race-etoile,
+.point-race.selectionnee .nom-race-etoile {
+  color: var(--gold);
+}
+
+.point-race.selectionnee .nom-race-etoile { opacity: 0; }
+
+/* Anneau bronze lisse (Humain uniquement) — les 4 autres races utilisent une vraie image de
+   cadre (voir .cadre--image plus haut), pas une texture CSS. */
+.cadre--bronze {
+  background: conic-gradient(from 45deg, var(--mat-bronze-dark), var(--mat-bronze-light) 25%, var(--mat-bronze-base) 50%, var(--mat-bronze-light) 75%, var(--mat-bronze-dark));
+}
+
+/* ================================================================
+   Étiquette parchemin — se déroule sous la race agrandie en bas de l'étoile
+   ================================================================ */
+
+/* Parchemin 100% CSS (pas d'image source) : bords déchirés via clip-path polygonal irrégulier,
+   texture "papier vieilli" par empilement de dégradés (fibres fines + taches + brûlé aux coins). */
+.etiquette-parchemin {
+  max-width: 900px;
+  margin: -30px auto 0;
+  position: relative;
+  clip-path: polygon(
+    0% 3%, 4% 0%, 9% 2%, 15% 0.5%, 22% 1.8%, 30% 0%, 38% 1.5%, 46% 0.3%, 55% 1.8%, 63% 0%, 71% 1.2%, 80% 0.3%, 88% 1.6%, 94% 0%, 100% 2.5%,
+    99% 8%, 100% 14%, 98.5% 20%, 100% 27%, 99% 34%, 100% 41%, 98.5% 48%, 100% 55%, 99% 62%, 100% 69%, 98.5% 76%, 100% 83%, 99% 90%, 100% 97%,
+    94% 100%, 88% 98.3%, 80% 100%, 71% 98.7%, 63% 100%, 55% 98.2%, 46% 100%, 38% 98.5%, 30% 100%, 22% 98.2%, 15% 100%, 9% 98%, 4% 100%, 0% 97%,
+    1% 90%, 0% 83%, 1.5% 76%, 0% 69%, 1% 62%, 0% 55%, 1.5% 48%, 0% 41%, 1% 34%, 0% 27%, 1.5% 20%, 0% 14%, 1% 8%
+  );
+  background:
+    radial-gradient(ellipse at 8% 6%, rgba(35, 18, 6, 0.5), transparent 16%),
+    radial-gradient(ellipse at 94% 8%, rgba(35, 18, 6, 0.45), transparent 18%),
+    radial-gradient(ellipse at 92% 94%, rgba(35, 18, 6, 0.5), transparent 20%),
+    radial-gradient(ellipse at 6% 92%, rgba(35, 18, 6, 0.45), transparent 18%),
+    radial-gradient(circle at 20% 25%, rgba(120, 80, 40, 0.22), transparent 28%),
+    radial-gradient(circle at 80% 20%, rgba(100, 65, 32, 0.18), transparent 30%),
+    radial-gradient(circle at 75% 80%, rgba(95, 60, 28, 0.25), transparent 32%),
+    radial-gradient(circle at 25% 82%, rgba(110, 72, 36, 0.2), transparent 30%),
+    repeating-linear-gradient(96deg, rgba(90, 60, 30, 0.06) 0px, rgba(90, 60, 30, 0.06) 1px, transparent 1px, transparent 3px),
+    linear-gradient(155deg, #ecd9ac 0%, #ddc088 28%, #e7d09e 52%, #cfab74 78%, #e0c48f 100%);
+  box-shadow: inset 0 0 40px rgba(35, 18, 6, 0.35), inset 0 0 90px rgba(35, 18, 6, 0.12);
+  padding: 56px 64px 66px;
+  filter: drop-shadow(0 24px 50px rgba(0, 0, 0, 0.65));
+  color: #3c2c18;
+  transform-origin: top center;
+  animation: deroulement-parchemin 0.55s cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+
+.parchemin-corps {
+  display: grid;
+  grid-template-columns: minmax(220px, 320px) 1fr;
+  gap: 28px;
+  align-items: start;
+  margin-top: 18px;
+}
+
+@media (max-width: 640px) {
+  .parchemin-corps { grid-template-columns: 1fr; }
+}
+
+@keyframes deroulement-parchemin {
+  from { transform: scaleY(0.15); opacity: 0; }
+  60% { opacity: 1; }
+  to { transform: scaleY(1); opacity: 1; }
+}
+
+.etiquette-parchemin::before {
+  content: "";
+  position: absolute;
+  top: -16px;
+  left: 50%;
+  width: 30px;
+  height: 30px;
+  transform: translateX(-50%);
+  background: radial-gradient(circle at 35% 30%, #f0cd6e, #b0813f 55%, #5c4118 100%);
+  border-radius: 50%;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.6), 0 0 0 2px #4a3212;
+}
+
+.etiquette-parchemin h2,
+.etiquette-parchemin h3 {
+  font-family: var(--gothique);
+  color: #6b3f18;
+  text-shadow: none;
+  background: none;
+  -webkit-text-fill-color: #6b3f18;
+  -webkit-text-stroke: 0;
+  filter: none;
+}
+
+.etiquette-parchemin h3 { font-family: var(--moyen); font-size: 1.15rem; }
+
+.etiquette-parchemin p { color: #4a3620; }
+
+.trait-racial-parchemin {
+  font-family: var(--moyen);
+  font-weight: 600;
+  color: #7a2f14;
+}
+
+.radar-svg {
+  width: 100%;
+  max-width: 320px;
+  margin: 0 auto;
+  display: block;
+}
+
+.radar-anneau {
+  fill: none;
+  stroke: var(--border);
+  stroke-width: 1;
+}
+
+.radar-axe {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+
+.radar-forme {
+  fill: rgba(204, 159, 63, 0.28);
+  stroke: var(--gold);
+  stroke-width: 2;
+}
+
+.radar-label {
+  fill: var(--text-dim);
+  font-family: var(--moyen);
+  font-size: 10px;
+}
+
+.radar-valeur {
+  fill: var(--gold);
+  font-weight: bold;
+  font-size: 11px;
+}
+
+.liste-classes-icones {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.zone-specs-pleine-largeur {
+  margin-top: 20px;
+}
+
+.classe-icone-carte {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  border-radius: 8px;
+  padding: 9px 11px;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.classe-icone-carte:hover { border-color: var(--gold-border); }
+.classe-icone-carte.selectionnee { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold); }
+.classe-icone-carte.classe-icone-carte--bloquee { opacity: 0.4; cursor: not-allowed; }
+
+.icone-classe { color: var(--gold); flex-shrink: 0; }
+
+.classe-icone-carte .nom-classe-icone { font-family: var(--moyen); font-size: 0.88rem; }
+
+/* Rééquilibrage des couleurs pour le fond clair de l'étiquette parchemin */
+.etiquette-parchemin .radar-anneau,
+.etiquette-parchemin .radar-axe { stroke: #b89b6a; }
+.etiquette-parchemin .radar-forme { fill: rgba(122, 47, 20, 0.22); stroke: #7a2f14; }
+.etiquette-parchemin .radar-label { fill: #5c4526; }
+.etiquette-parchemin .radar-valeur { fill: #7a2f14; }
+
+.etiquette-parchemin .classe-icone-carte {
+  background: rgba(255, 250, 235, 0.4);
+  border-color: #b89b6a;
+}
+.etiquette-parchemin .classe-icone-carte:hover { border-color: #7a2f14; }
+.etiquette-parchemin .classe-icone-carte.selectionnee { border-color: #7a2f14; box-shadow: 0 0 0 1px #7a2f14; }
+.etiquette-parchemin .classe-icone-carte .nom-classe-icone { color: #3c2c18; }
+.etiquette-parchemin .icone-classe { color: #7a2f14; }
+.etiquette-parchemin .badge--bloque { color: #8a2a2a; border-color: #8a2a2a; background: rgba(138, 42, 42, 0.12); }
+.etiquette-parchemin .badge--attention { color: #8a5a10; border-color: #8a5a10; background: rgba(138, 90, 16, 0.12); }
+.etiquette-parchemin .carte-spec { background: rgba(255, 250, 235, 0.4); border-color: #b89b6a; }
+.etiquette-parchemin .carte-spec strong { color: #6b3f18; }
+.etiquette-parchemin .icone-spec { color: #7a2f14; }
+.etiquette-parchemin .groupe-ecole h3 { color: #6b3f18; }

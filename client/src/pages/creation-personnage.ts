@@ -1,18 +1,19 @@
 import { api, type Classe, type Race, type Specialisation } from "../api";
+import { ANGLES_RACES, genererEtoileLiens } from "../components/etoile-liens";
+import { icone } from "../components/icones-classes";
+import { iconeSpecialisation } from "../components/icones-specialisations";
+import { genererRadarSVG } from "../components/radar-stats";
 import { jouerTransitionRace } from "../components/transition-race";
 import { naviguer } from "../router";
 import { state } from "../state";
 
-const NOMS_STATS: [key: string, label: string][] = [
-  ["force", "Force"],
-  ["dexterite", "Dextérité"],
-  ["vitalite", "Vitalité"],
-  ["charisme", "Charisme"],
-  ["intelligence", "Intelligence"],
-  ["sagesse", "Sagesse"],
-  ["chance", "Chance"],
-  ["perception", "Perception"],
-];
+/**
+ * Cadre de portrait par race. L'Humain garde un anneau bronze généré en CSS (lisse, comme
+ * demandé). Les 4 autres utilisent de vraies illustrations de cadre (docs/img/cadre/, détourées
+ * et converties en WebP transparent par client/scripts/detourer-cadres.mjs), superposées au
+ * portrait plutôt qu'une texture CSS — bien plus fidèle aux références fournies.
+ */
+const RACES_AVEC_IMAGE_CADRE = new Set(["nain", "elfe", "mage", "demi-orc"]);
 
 export async function renderCreationPersonnage(app: HTMLElement) {
   const equipeId = state.equipeId;
@@ -43,7 +44,7 @@ export async function renderCreationPersonnage(app: HTMLElement) {
     <div id="erreur-creation"></div>
 
     <h2>Race</h2>
-    <div class="grille-races" id="grille-races"></div>
+    <div class="conteneur-etoile" id="etoile-races"></div>
     <div id="zone-detail"></div>
 
     <div class="actions">
@@ -54,7 +55,7 @@ export async function renderCreationPersonnage(app: HTMLElement) {
 
   const zoneErreur = app.querySelector<HTMLElement>("#erreur-creation")!;
   const zoneDetail = app.querySelector<HTMLElement>("#zone-detail")!;
-  const grilleRaces = app.querySelector<HTMLElement>("#grille-races")!;
+  const conteneurEtoile = app.querySelector<HTMLElement>("#etoile-races")!;
   const btnSuivant = app.querySelector<HTMLButtonElement>("#btn-suivant")!;
   const inputPseudo = app.querySelector<HTMLInputElement>("#pseudo")!;
 
@@ -67,53 +68,81 @@ export async function renderCreationPersonnage(app: HTMLElement) {
   }
   inputPseudo.addEventListener("input", majBoutonSuivant);
 
-  grilleRaces.innerHTML = races
-    .map(
-      (r) => `
-    <div class="carte-race" data-id="${r.id}">
-      <img class="portrait-race" src="/img/races/${r.id}.webp" alt="Portrait ${r.nom}" loading="lazy" />
-      <h3>${r.nom}</h3>
-      <div class="trait">${r.traitRacial}</div>
-    </div>
-  `
-    )
-    .join("");
+  // ---------- Étoile de sélection de race ----------
+  const angles = races.map((r) => ANGLES_RACES[r.id] ?? 0);
+  conteneurEtoile.innerHTML =
+    genererEtoileLiens(angles) +
+    races
+      .map((r) => {
+        const avecImageCadre = RACES_AVEC_IMAGE_CADRE.has(r.id);
+        return `
+      <button type="button" class="point-race" data-id="${r.id}" style="--angle:${ANGLES_RACES[r.id] ?? 0}deg">
+        <span class="cadre-race-etoile ${avecImageCadre ? "cadre--image" : "cadre--bronze"}">
+          <img class="${avecImageCadre ? "portrait-dans-cadre" : ""}" src="/img/races/${r.id}.webp" alt="Portrait ${r.nom}" loading="lazy" />
+          ${avecImageCadre ? `<img class="image-cadre" src="/img/cadres/${r.id}.webp" alt="" loading="lazy" />` : ""}
+        </span>
+        <span class="nom-race-etoile">${r.nom}</span>
+      </button>
+    `;
+      })
+      .join("");
 
-  grilleRaces.querySelectorAll<HTMLElement>(".carte-race").forEach((carte) => {
-    carte.addEventListener("click", () => {
-      const race = races.find((r) => r.id === carte.dataset["id"])!;
+  // Rotation cumulée réelle (pas mod 360) pour permettre à la roue de tourner dans le sens le
+  // plus court d'une sélection à l'autre, plutôt que de sauter à une valeur absolue qui peut
+  // forcer un tour complet superflu (ex: 180deg -> -108deg = 288° parcourus au lieu de 72°).
+  let rotationCourante = 0;
+
+  function tournerRoueVers(angleRace: number) {
+    const cible = 180 - angleRace;
+    const delta = (((cible - rotationCourante) % 360) + 540) % 360 - 180;
+    rotationCourante += delta;
+    conteneurEtoile.style.setProperty("--rotation-globale", `${rotationCourante}deg`);
+  }
+
+  conteneurEtoile.querySelectorAll<HTMLElement>(".point-race").forEach((point) => {
+    point.addEventListener("click", () => {
+      const race = races.find((r) => r.id === point.dataset["id"])!;
       raceSelectionnee = race;
       classeSelectionnee = null;
 
-      grilleRaces.querySelectorAll(".carte-race").forEach((c) => c.classList.remove("selectionnee"));
-      carte.classList.add("selectionnee");
+      conteneurEtoile.querySelectorAll(".point-race").forEach((p) => p.classList.remove("selectionnee"));
+      point.classList.add("selectionnee");
+
+      // Fait tourner la roue pour amener la race choisie en bas (180°), où son cercle grossit.
+      tournerRoueVers(ANGLES_RACES[race.id] ?? 0);
 
       afficherDetailRace(race);
       majBoutonSuivant();
     });
   });
 
+  // ---------- Étiquette parchemin : lore + radar + classes ----------
   function afficherDetailRace(race: Race) {
     zoneDetail.innerHTML = `
-      <div class="detail-race">
-        <div class="detail-race-entete">
-          <img class="portrait-race-grand" src="/img/races/${race.id}.webp" alt="Portrait ${race.nom}" />
+      <div class="etiquette-parchemin">
+        <h2>${race.nom}</h2>
+        <p>${race.lore}</p>
+        ${race.tailleMin ? `<p style="font-size:0.85rem">Taille : ${race.tailleMin}-${race.tailleMax} cm · Poids : ${race.poidsMin}-${race.poidsMax} kg</p>` : `<p style="font-size:0.85rem">Taille/Poids : saisie libre (variable selon les individus)</p>`}
+        <p class="trait-racial-parchemin">${race.traitRacial}</p>
+        <div class="parchemin-corps">
           <div>
-            <p>${race.lore}</p>
-            ${race.tailleMin ? `<p style="font-size:0.8rem">Taille : ${race.tailleMin}-${race.tailleMax} cm · Poids : ${race.poidsMin}-${race.poidsMax} kg</p>` : `<p style="font-size:0.8rem">Taille/Poids : saisie libre (variable selon les individus)</p>`}
+            ${genererRadarSVG({
+              force: race.force,
+              dexterite: race.dexterite,
+              vitalite: race.vitalite,
+              charisme: race.charisme,
+              intelligence: race.intelligence,
+              sagesse: race.sagesse,
+              chance: race.chance,
+              perception: race.perception,
+            })}
+          </div>
+          <div>
+            <h3>Classes disponibles</h3>
+            <div class="liste-classes-icones" id="grille-classes"></div>
           </div>
         </div>
-        <div class="stats-grille">
-          ${NOMS_STATS.map(
-            ([cle, label]) => `
-            <div class="stat"><span class="valeur">${(race as any)[cle]}</span><span class="label">${label}</span></div>
-          `
-          ).join("")}
-        </div>
-
-        <h3>Classe</h3>
-        <div class="grille-classes" id="grille-classes"></div>
-        <div id="zone-specs"></div>
+        <div id="zone-specs" class="zone-specs-pleine-largeur"></div>
       </div>
     `;
 
@@ -124,29 +153,27 @@ export async function renderCreationPersonnage(app: HTMLElement) {
         if (!lien) {
           const raceAutorisee = c.racesAutorisees[0]?.race.nom ?? "une autre race";
           return `
-            <div class="chip-classe chip-classe--bloquee" title="Réservé à : ${raceAutorisee}">
-              <span class="nom">${c.nom}</span>
-              <span class="role">${c.roleCombat}</span>
-              <span class="badge badge--bloque">Réservé à ${raceAutorisee}</span>
+            <div class="classe-icone-carte classe-icone-carte--bloquee" title="Réservé à : ${raceAutorisee}">
+              ${icone(c.id)}
+              <span class="nom-classe-icone">${c.nom}<br><span class="badge badge--bloque">Réservé à ${raceAutorisee}</span></span>
             </div>
           `;
         }
         return `
-          <button type="button" class="chip-classe" data-id="${c.id}">
-            <span class="nom">${c.nom}</span>
-            <span class="role">${c.roleCombat}</span>
-            ${lien.deconseille ? `<span class="badge badge--attention">Déconseillé pour cette race</span>` : ""}
+          <button type="button" class="classe-icone-carte" data-id="${c.id}">
+            ${icone(c.id)}
+            <span class="nom-classe-icone">${c.nom}${lien.deconseille ? `<br><span class="badge badge--attention">Déconseillé</span>` : ""}</span>
           </button>
         `;
       })
       .join("");
 
-    grilleClasses.querySelectorAll<HTMLElement>(".chip-classe:not(.chip-classe--bloquee)").forEach((chip) => {
+    grilleClasses.querySelectorAll<HTMLElement>(".classe-icone-carte:not(.classe-icone-carte--bloquee)").forEach((chip) => {
       chip.addEventListener("click", async () => {
         const classe = classes.find((c) => c.id === chip.dataset["id"])!;
         classeSelectionnee = classe;
 
-        grilleClasses.querySelectorAll(".chip-classe").forEach((c) => c.classList.remove("selectionnee"));
+        grilleClasses.querySelectorAll(".classe-icone-carte").forEach((c) => c.classList.remove("selectionnee"));
         chip.classList.add("selectionnee");
 
         const specialisations = await api.listerSpecialisations(classe.id);
@@ -165,7 +192,10 @@ export async function renderCreationPersonnage(app: HTMLElement) {
     const zoneSpecs = zoneDetail.querySelector<HTMLElement>("#zone-specs")!;
     const carteHtml = (s: Specialisation) => `
       <div class="carte-spec" style="cursor:default">
-        <strong>${s.nom}</strong>
+        <div class="entete-carte-spec">
+          ${iconeSpecialisation(classe.id, s.nom)}
+          <strong>${s.nom}</strong>
+        </div>
         <div style="font-size:0.82rem;color:var(--text-dim)">${s.description}</div>
         <div class="attaque">${s.attaqueSignature}</div>
       </div>
