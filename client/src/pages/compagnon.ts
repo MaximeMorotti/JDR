@@ -17,18 +17,11 @@ export async function renderCompagnon(app: HTMLElement) {
   function afficher(nomEquipe: string, choisiId: string | null, compagnons: Awaited<ReturnType<typeof api.compagnonsDisponibles>>) {
     app.innerHTML = `
       <div class="entete"><h1>${nomEquipe}</h1></div>
-      <div class="etapes">
-        <span class="etape">Personnages</span>
-        <span class="etape">Équipement</span>
-        <span class="etape etape--active">Compagnon</span>
-        <span class="etape">Récapitulatif</span>
-      </div>
-      <p>Un seul compagnon par équipe. Certains nécessitent une classe ou une race précise dans l'équipe.</p>
+      <p>Un seul compagnon par équipe. Les chiens et la Mule sont accessibles à toute équipe ; les autres nécessitent une classe ou une race précise dans l'équipe.</p>
       <div id="erreur-compagnon"></div>
       <div class="grille-compagnons" id="grille-compagnons"></div>
       <div class="actions">
-        <button class="btn btn--fantome" id="btn-retour">← Retour à l'équipement</button>
-        <button class="btn btn--primaire" id="btn-recap">Voir le récapitulatif →</button>
+        <button class="btn btn--fantome" id="btn-retour">← Retour à l'équipe</button>
       </div>
     `;
 
@@ -45,6 +38,7 @@ export async function renderCompagnon(app: HTMLElement) {
             : "";
         return `
         <div class="carte-compagnon ${!c.accessible ? "inaccessible" : ""} ${estChoisi ? "choisi" : ""}">
+          <img class="portrait-compagnon" src="/img/compagnons/${c.id}.webp" alt="Portrait ${c.nom}" loading="lazy" />
           <h3>${c.nom}</h3>
           <div style="font-size:0.85rem;color:var(--text-dim)">${c.role}</div>
           <div class="stats-grille" style="margin-top:10px">
@@ -85,8 +79,7 @@ export async function renderCompagnon(app: HTMLElement) {
       });
     });
 
-    app.querySelector("#btn-retour")!.addEventListener("click", () => naviguer("/creation"));
-    app.querySelector("#btn-recap")!.addEventListener("click", () => naviguer("/recapitulatif"));
+    app.querySelector("#btn-retour")!.addEventListener("click", () => naviguer("/equipe"));
   }
 
   await charger();

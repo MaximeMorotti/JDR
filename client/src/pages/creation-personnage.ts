@@ -1,4 +1,5 @@
 import { api, type Classe, type Race, type Specialisation } from "../api";
+import { jouerTransitionRace } from "../components/transition-race";
 import { naviguer } from "../router";
 import { state } from "../state";
 
@@ -18,7 +19,7 @@ export async function renderCreationPersonnage(app: HTMLElement) {
   if (!equipeId) return naviguer("/accueil");
 
   const equipe = await api.obtenirEquipe(equipeId);
-  if (equipe.personnages.length >= 4) return naviguer("/compagnon");
+  if (equipe.personnages.length >= 4) return naviguer("/equipe");
 
   const [races, classes] = await Promise.all([api.listerRaces(), api.listerClasses()]);
 
@@ -31,10 +32,7 @@ export async function renderCreationPersonnage(app: HTMLElement) {
       <div class="budget ${equipe.orRestant < 20 ? "budget--faible" : ""}">${equipe.orRestant} po</div>
     </div>
     <div class="etapes">
-      <span class="etape etape--active">Personnage ${equipe.personnages.length + 1}/4</span>
-      <span class="etape">Équipement</span>
-      <span class="etape">Compagnon</span>
-      <span class="etape">Récapitulatif</span>
+      <span class="etape etape--active">Nouveau personnage (${equipe.personnages.length + 1}/4)</span>
     </div>
 
     <div class="champ">
@@ -49,7 +47,7 @@ export async function renderCreationPersonnage(app: HTMLElement) {
     <div id="zone-detail"></div>
 
     <div class="actions">
-      <button class="btn btn--fantome" id="btn-retour">← Retour à l'accueil</button>
+      <button class="btn btn--fantome" id="btn-retour">${equipe.personnages.length > 0 ? "← Retour à l'équipe" : "← Retour à l'accueil"}</button>
       <button class="btn btn--primaire" id="btn-suivant" disabled>Créer ce personnage</button>
     </div>
   `;
@@ -60,7 +58,9 @@ export async function renderCreationPersonnage(app: HTMLElement) {
   const btnSuivant = app.querySelector<HTMLButtonElement>("#btn-suivant")!;
   const inputPseudo = app.querySelector<HTMLInputElement>("#pseudo")!;
 
-  app.querySelector("#btn-retour")!.addEventListener("click", () => naviguer("/accueil"));
+  app.querySelector("#btn-retour")!.addEventListener("click", () =>
+    naviguer(equipe.personnages.length > 0 ? "/equipe" : "/accueil")
+  );
 
   function majBoutonSuivant() {
     btnSuivant.disabled = !(inputPseudo.value.trim() && raceSelectionnee && classeSelectionnee);
@@ -71,6 +71,7 @@ export async function renderCreationPersonnage(app: HTMLElement) {
     .map(
       (r) => `
     <div class="carte-race" data-id="${r.id}">
+      <img class="portrait-race" src="/img/races/${r.id}.webp" alt="Portrait ${r.nom}" loading="lazy" />
       <h3>${r.nom}</h3>
       <div class="trait">${r.traitRacial}</div>
     </div>
@@ -95,8 +96,13 @@ export async function renderCreationPersonnage(app: HTMLElement) {
   function afficherDetailRace(race: Race) {
     zoneDetail.innerHTML = `
       <div class="detail-race">
-        <p>${race.lore}</p>
-        ${race.tailleMin ? `<p style="font-size:0.8rem">Taille : ${race.tailleMin}-${race.tailleMax} cm · Poids : ${race.poidsMin}-${race.poidsMax} kg</p>` : `<p style="font-size:0.8rem">Taille/Poids : saisie libre (variable selon les individus)</p>`}
+        <div class="detail-race-entete">
+          <img class="portrait-race-grand" src="/img/races/${race.id}.webp" alt="Portrait ${race.nom}" />
+          <div>
+            <p>${race.lore}</p>
+            ${race.tailleMin ? `<p style="font-size:0.8rem">Taille : ${race.tailleMin}-${race.tailleMax} cm · Poids : ${race.poidsMin}-${race.poidsMax} kg</p>` : `<p style="font-size:0.8rem">Taille/Poids : saisie libre (variable selon les individus)</p>`}
+          </div>
+        </div>
         <div class="stats-grille">
           ${NOMS_STATS.map(
             ([cle, label]) => `
@@ -206,12 +212,13 @@ export async function renderCreationPersonnage(app: HTMLElement) {
     zoneErreur.innerHTML = "";
     btnSuivant.disabled = true;
     try {
-      const { personnage } = await api.creerPersonnage(equipeId, {
+      await api.creerPersonnage(equipeId, {
         pseudo: inputPseudo.value.trim(),
         raceId: raceSelectionnee.id,
         classeId: classeSelectionnee.id,
       });
-      naviguer(`/equipement/${personnage.id}`);
+      await jouerTransitionRace(raceSelectionnee.id);
+      naviguer("/equipe");
     } catch (e) {
       zoneErreur.innerHTML = `<div class="erreur">${(e as Error).message}</div>`;
       btnSuivant.disabled = false;

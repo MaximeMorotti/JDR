@@ -52,13 +52,6 @@ export async function renderEquipement(app: HTMLElement, params: { personnageId:
         <h1>${nomEquipe}</h1>
         <div class="budget ${orRestant < 20 ? "budget--faible" : ""}">${orRestant} po</div>
       </div>
-      <div class="etapes">
-        <span class="etape">Personnages</span>
-        <span class="etape etape--active">Équipement</span>
-        <span class="etape">Compagnon</span>
-        <span class="etape">Récapitulatif</span>
-      </div>
-
       <div class="liste-personnages" id="onglets-persos"></div>
 
       <h2>${personnage.pseudo} — ${personnage.race.nom} ${personnage.classe.nom}${personnage.specialisation ? " · " + personnage.specialisation.nom : ""}</h2>
@@ -83,10 +76,7 @@ export async function renderEquipement(app: HTMLElement, params: { personnageId:
       </div>
 
       <div class="actions">
-        <button class="btn btn--fantome" id="btn-retour">← Retour</button>
-        ${tousPersonnages.length < 4 ? `<button class="btn" id="btn-ajouter">+ Ajouter un personnage</button>` : ""}
-        <button class="btn btn--primaire" id="btn-compagnon">Choisir le compagnon →</button>
-        <button class="btn" id="btn-recap">Voir le récapitulatif</button>
+        <button class="btn btn--fantome" id="btn-retour">← Retour à l'équipe</button>
       </div>
     `;
 
@@ -164,10 +154,7 @@ export async function renderEquipement(app: HTMLElement, params: { personnageId:
       });
     });
 
-    app.querySelector("#btn-retour")!.addEventListener("click", () => naviguer("/creation"));
-    app.querySelector("#btn-ajouter")?.addEventListener("click", () => naviguer("/creation"));
-    app.querySelector("#btn-compagnon")!.addEventListener("click", () => naviguer("/compagnon"));
-    app.querySelector("#btn-recap")!.addEventListener("click", () => naviguer("/recapitulatif"));
+    app.querySelector("#btn-retour")!.addEventListener("click", () => naviguer("/equipe"));
   }
 
   await charger();

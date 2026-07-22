@@ -433,6 +433,11 @@ const objets: Objet[] = [
 
 // ============================================================
 // COMPAGNONS — cf. Codex_des_Compagnons.md (tableau comparatif retenu comme référence)
+//
+// ⚠️ Écart tranché avec l'utilisateur : le Codex source dit les 5 chiens et la Mule
+// "disponibles pour toute équipe comportant un Guerrier, un Voleur ou un Barde". Décision
+// explicite : ce sont en réalité des compagnons universels, sans prérequis de classe — aucun
+// classesLiees pour ces 6 compagnons ci-dessous. Documenté dans CLAUDE.md.
 // ============================================================
 
 type Compagnon = {
@@ -460,7 +465,6 @@ const compagnons: Compagnon[] = [
     pv: 10, force: 2, dexterite: 16, vitalite: 5,
     capaciteTransport: "Aucune sans harnais (1 emplacement une fois crafté)",
     attaques: "Morsure vive (1-2) : dégâts physiques mineurs, esquive très élevée en combat.",
-    classesLiees: ["guerrier", "voleur", "barde"],
   },
   {
     id: "cocker",
@@ -470,7 +474,6 @@ const compagnons: Compagnon[] = [
     pv: 14, force: 4, dexterite: 12, vitalite: 8,
     capaciteTransport: "Aucune sans harnais (1 emplacement une fois crafté)",
     attaques: "Morsure (2-3) : dégâts physiques. Présence apaisante : léger bonus de moral (Charisme d'équipe) au campement.",
-    classesLiees: ["guerrier", "voleur", "barde"],
   },
   {
     id: "labrador",
@@ -480,7 +483,6 @@ const compagnons: Compagnon[] = [
     pv: 20, force: 7, dexterite: 8, vitalite: 12,
     capaciteTransport: "Aucune sans harnais (1 emplacement une fois crafté)",
     attaques: "Morsure ferme (3-5) : dégâts physiques.",
-    classesLiees: ["guerrier", "voleur", "barde"],
   },
   {
     id: "border-collie",
@@ -490,7 +492,6 @@ const compagnons: Compagnon[] = [
     pv: 16, force: 5, dexterite: 15, vitalite: 9,
     capaciteTransport: "Aucune sans harnais (1 emplacement une fois crafté)",
     attaques: "Morsure rapide (2-4) : dégâts physiques, bonus d'esquive au tour suivant.",
-    classesLiees: ["guerrier", "voleur", "barde"],
   },
   {
     id: "berger-australien",
@@ -500,7 +501,6 @@ const compagnons: Compagnon[] = [
     pv: 18, force: 6, dexterite: 14, vitalite: 10,
     capaciteTransport: "Aucune sans harnais (1 emplacement une fois crafté)",
     attaques: "Morsure (3-4) : dégâts physiques. Rabattage : repousse et isole une cible proche, l'éloignant de ses alliés.",
-    classesLiees: ["guerrier", "voleur", "barde"],
   },
   {
     id: "mule",
@@ -510,7 +510,6 @@ const compagnons: Compagnon[] = [
     pv: 26, force: 9, dexterite: 5, vitalite: 15,
     capaciteTransport: "Selle de base : 2 emplacements. Avec 2 sacoches craftées (Ingénieur) : 10 emplacements (5 par sacoche).",
     attaques: "Ruade (2-3) : dégâts physiques défensifs, utilisée seulement si la Mule est attaquée directement.",
-    classesLiees: ["guerrier", "voleur", "barde"],
   },
   {
     id: "elan",

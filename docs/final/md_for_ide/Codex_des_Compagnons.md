@@ -12,6 +12,8 @@ Un seul et unique compagnon est autorisé pour toute la compagnie d'aventuriers,
 
 ## Chiens (Compagnons des classes génériques)[cite: 9, 10]
 Disponibles pour toute équipe comportant un Guerrier, un Voleur ou un Barde[cite: 9, 10]. Cinq races au choix, chacune avec un profil de stats différent[cite: 9, 10]. Aucun chien ne peut rien transporter sans qu'un harnais lui soit d'abord crafté (1 emplacement, voir le récapitulatif de craft en fin de document)[cite: 9, 10].
+>
+> **⚠️ Écart tranché (décision utilisateur) :** en pratique, les 5 chiens et la Mule sont implémentés comme des compagnons **universels, sans prérequis de classe** — accessibles à n'importe quelle équipe, contrairement à la restriction "Guerrier/Voleur/Barde" énoncée ci-dessus. Voir CLAUDE.md.
 
 ### Chihuahua[cite: 9, 10]
 * **Lié à :** Guerrier, Voleur, Barde[cite: 9, 10]

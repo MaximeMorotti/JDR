@@ -61,8 +61,9 @@ export async function renderAccueil(app: HTMLElement) {
 
   zoneEquipes.querySelectorAll<HTMLElement>(".item-equipe").forEach((el) => {
     el.addEventListener("click", () => {
-      state.equipeId = el.dataset["id"]!;
-      naviguer("/creation");
+      const equipe = equipes.find((e) => e.id === el.dataset["id"])!;
+      state.equipeId = equipe.id;
+      naviguer(equipe.personnages.length > 0 ? "/equipe" : "/creation");
     });
   });
 }

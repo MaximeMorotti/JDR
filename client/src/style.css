@@ -1,27 +1,50 @@
 :root {
-  --bg-deep: #0d0b12;
-  --bg-panel: #15121c;
-  --bg-card: rgba(32, 27, 43, 0.72);
-  --bg-card-hover: rgba(42, 35, 56, 0.85);
-  --border: #332c44;
-  --border-soft: #241f30;
-  --text: #ece7f5;
-  --text-dim: #a89fbd;
-  --text-faint: #746a8c;
-  --gold: #d8b45c;
-  --gold-soft: rgba(216, 180, 92, 0.14);
-  --gold-border: rgba(216, 180, 92, 0.45);
-  --danger: #e0636c;
-  --danger-soft: rgba(224, 99, 108, 0.14);
-  --success: #5cbf8f;
-  --warn: #e0a63a;
-  --warn-soft: rgba(224, 166, 58, 0.16);
+  /* Palette "donjon aux torches" — cuir, parchemin, bronze, plutôt que le violet froid initial */
+  --bg-deep: #120d09;
+  --bg-panel: #1e160e;
+  --bg-card: rgba(43, 32, 21, 0.72);
+  --bg-card-hover: rgba(58, 43, 28, 0.85);
+  --border: #4a3826;
+  --border-soft: #2a2015;
+  --text: #ece0c8;
+  --text-dim: #b8a888;
+  --text-faint: #82735a;
+  --gold: #cc9f3f;
+  --gold-soft: rgba(204, 159, 63, 0.14);
+  --gold-border: rgba(204, 159, 63, 0.5);
+  --ember: #d4622a;
+  --ember-soft: rgba(212, 98, 42, 0.16);
+  --danger: #b8434a;
+  --danger-soft: rgba(184, 67, 74, 0.16);
+  --success: #6a9c5e;
+  --warn: #c98a3a;
+  --warn-soft: rgba(201, 138, 58, 0.16);
 
-  --sans: "Inter", system-ui, "Segoe UI", Roboto, sans-serif;
-  --heading: "Cinzel", "Inter", system-ui, serif;
+  /* Thèmes matière pour les cadres de portrait (race, etc.) */
+  --mat-metal-base: #8a95a3;
+  --mat-metal-dark: #3d4750;
+  --mat-metal-light: #d4dce2;
+  --mat-bois-base: #6b4a2a;
+  --mat-bois-dark: #33220f;
+  --mat-bois-light: #b0895a;
+  --mat-bronze-base: #b0813f;
+  --mat-bronze-dark: #5c4118;
+  --mat-bronze-light: #ecc978;
+  --mat-os-base: #d3c39d;
+  --mat-os-dark: #79694a;
+  --mat-os-light: #f4ecd8;
+  --mat-obsidienne-base: #2a1f3a;
+  --mat-obsidienne-dark: #120c1c;
+  --mat-obsidienne-light: #9a6fdb;
+
+  --serif: "EB Garamond", Georgia, "Times New Roman", serif;
+  --heading: "Cinzel", Georgia, serif;
+  --gothique: "UnifrakturMaguntia", "Cinzel", serif;
+  /* Palier intermédiaire : médiéval mais lisible en petit (champs, boutons, texte courant) */
+  --moyen: "MedievalSharp", var(--serif);
 
   color-scheme: dark;
-  font: 16px/1.5 var(--sans);
+  font: 18px/1.6 var(--moyen);
   color: var(--text);
   background: var(--bg-deep);
   -webkit-font-smoothing: antialiased;
@@ -34,19 +57,63 @@
 body {
   margin: 0;
   min-height: 100svh;
-  background: radial-gradient(ellipse at top, #1b1626 0%, var(--bg-deep) 60%);
+  background:
+    radial-gradient(ellipse 60% 40% at 50% 0%, rgba(212, 98, 42, 0.07) 0%, transparent 70%),
+    radial-gradient(ellipse 50% 50% at 15% 85%, rgba(204, 159, 63, 0.05) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 90% 20%, rgba(90, 60, 30, 0.1) 0%, transparent 60%),
+    var(--bg-deep);
+  background-attachment: fixed;
 }
 
 h1, h2, h3 {
-  font-family: var(--heading);
   color: var(--gold);
   margin: 0 0 0.4em;
   font-weight: 600;
+  letter-spacing: 0.03em;
+  text-shadow: 0 2px 14px rgba(204, 159, 63, 0.22), 0 1px 0 rgba(0, 0, 0, 0.6);
 }
 
-h1 { font-size: 2rem; }
-h2 { font-size: 1.4rem; }
-h3 { font-size: 1.1rem; }
+/* Grands titres (h1, h2) : lettrage gothique. h3 (labels de cartes, sous-titres fréquents,
+   dense à l'écran) reste sur la police intermédiaire — la gothique y devient illisible. */
+h1, h2 {
+  font-family: var(--gothique);
+}
+
+h3 {
+  font-family: var(--moyen);
+}
+
+/* Titres majeurs : lettrage gothique gravé façon métal, plutôt que Cinzel (jugé trop plat) */
+h1 {
+  font-family: var(--gothique);
+  font-weight: 400;
+  font-size: 3.6rem;
+  letter-spacing: 0.015em;
+  line-height: 1.15;
+  background:
+    repeating-linear-gradient(
+      97deg,
+      rgba(255, 225, 180, 0.18) 0px,
+      rgba(255, 225, 180, 0.18) 1px,
+      transparent 1px,
+      transparent 3px
+    ),
+    linear-gradient(180deg, #e8b673 0%, #c17f3e 28%, #97602c 52%, #6b4022 75%, #b0763a 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-stroke: 0.6px rgba(30, 14, 2, 0.7);
+  text-shadow:
+    0 1px 0 rgba(255, 210, 160, 0.2),
+    0 -1px 1px rgba(0, 0, 0, 0.6),
+    0 2px 6px rgba(0, 0, 0, 0.5);
+  filter:
+    drop-shadow(0 0 12px rgba(224, 150, 70, 0.42))
+    drop-shadow(0 0 28px rgba(180, 110, 50, 0.25));
+}
+
+h2 { font-size: 1.45rem; }
+h3 { font-size: 1.1rem; letter-spacing: 0.01em; }
 
 p { margin: 0 0 0.6em; color: var(--text-dim); }
 
@@ -158,6 +225,7 @@ button {
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 18px;
+  box-shadow: inset 0 0 0 1px rgba(216, 180, 92, 0.06);
 }
 
 .champ {
@@ -211,13 +279,25 @@ button {
   padding: 16px;
   cursor: pointer;
   transition: border-color 0.15s, transform 0.15s;
+  overflow: hidden;
 }
 
-.carte-race:hover { border-color: var(--gold-border); }
+.carte-race:hover { border-color: var(--gold-border); transform: translateY(-2px); }
 .carte-race.selectionnee { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold); }
 
 .carte-race h3 { margin-bottom: 4px; }
 .carte-race .trait { font-size: 0.85rem; color: var(--text-faint); }
+
+.portrait-race {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  object-position: top;
+  border-radius: 8px;
+  margin-bottom: 10px;
+  border: 1px solid var(--border-soft);
+  background: var(--bg-panel);
+}
 
 .detail-race {
   grid-column: 1 / -1;
@@ -227,6 +307,25 @@ button {
   padding: 20px;
   animation: apparition 0.15s ease-out;
 }
+
+.detail-race-entete {
+  display: flex;
+  gap: 18px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.portrait-race-grand {
+  width: 180px;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  object-position: top;
+  border-radius: 10px;
+  border: 1px solid var(--gold-border);
+  flex-shrink: 0;
+}
+
+.detail-race-entete p { margin: 0 0 6px; }
 
 @keyframes apparition {
   from { opacity: 0; transform: translateY(-6px); }
@@ -411,10 +510,22 @@ button {
   background: var(--bg-card);
   border-radius: 12px;
   padding: 16px;
+  overflow: hidden;
 }
 
 .carte-compagnon.inaccessible { opacity: 0.45; }
 .carte-compagnon.choisi { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold); }
+
+.portrait-compagnon {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  object-position: top;
+  border-radius: 8px;
+  margin-bottom: 10px;
+  border: 1px solid var(--border-soft);
+  background: var(--bg-panel);
+}
 
 /* ---------- Récapitulatif ---------- */
 
@@ -464,3 +575,142 @@ button {
 }
 
 .item-equipe:hover { border-color: var(--gold-border); cursor: pointer; }
+
+/* ---------- Popup de confirmation ---------- */
+
+.overlay-confirmation {
+  position: fixed;
+  inset: 0;
+  background: rgba(6, 5, 9, 0.72);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  animation: apparition 0.12s ease-out;
+}
+
+.boite-confirmation {
+  background: var(--bg-panel);
+  border: 1px solid var(--gold-border);
+  border-radius: 12px;
+  padding: 22px 26px;
+  max-width: 360px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.boite-confirmation p { color: var(--text); margin: 0; }
+
+/* ---------- Page équipe (hub) ---------- */
+
+.grille-equipe {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 14px;
+  margin-bottom: 90px;
+}
+
+.carte-slot-perso {
+  position: relative;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  border-radius: 12px;
+  padding: 14px;
+  cursor: pointer;
+  transition: border-color 0.15s, transform 0.15s;
+  overflow: hidden;
+}
+
+.carte-slot-perso:hover { border-color: var(--gold-border); transform: translateY(-2px); }
+
+.carte-slot-perso .portrait-slot {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  object-position: top;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  border: 1px solid var(--border-soft);
+}
+
+.carte-slot-perso .btn-supprimer-slot {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid var(--danger);
+  background: rgba(13, 11, 18, 0.8);
+  color: var(--danger);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  line-height: 1;
+}
+.carte-slot-perso .btn-supprimer-slot:hover { background: var(--danger-soft); }
+
+.slot-vide {
+  border: 1px dashed var(--border);
+  background: transparent;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 180px;
+  cursor: pointer;
+  color: var(--text-faint);
+  font-family: var(--heading);
+  font-size: 2rem;
+  transition: border-color 0.15s, color 0.15s;
+}
+.slot-vide:hover { border-color: var(--gold-border); color: var(--gold); }
+
+/* ---------- Transition thématique (voir components/transition-race.ts) ---------- */
+
+.overlay-transition {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--couleur-transition);
+  animation: balayage-entree 0.35s ease-out;
+}
+
+.overlay-transition--sortie {
+  animation: balayage-sortie 0.35s ease-in forwards;
+}
+
+.overlay-transition--haut { transform-origin: bottom; }
+.overlay-transition--bas { transform-origin: top; }
+
+.symbole-transition {
+  font-size: 4rem;
+  animation: pulse-transition 0.55s ease-in-out;
+}
+
+@keyframes balayage-entree {
+  from { clip-path: inset(100% 0 0 0); }
+  to { clip-path: inset(0 0 0 0); }
+}
+@keyframes balayage-sortie {
+  from { clip-path: inset(0 0 0 0); opacity: 1; }
+  to { clip-path: inset(0 0 100% 0); opacity: 1; }
+}
+@keyframes pulse-transition {
+  0%, 100% { transform: scale(0.8); opacity: 0; }
+  50% { transform: scale(1.1); opacity: 1; }
+}
+
+.bouton-boutique-flottant {
+  position: fixed;
+  bottom: 28px;
+  right: 28px;
+  z-index: 20;
+  font-size: 1.05rem;
+  padding: 14px 28px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
