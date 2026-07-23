@@ -8,8 +8,11 @@ const ICONES: Record<string, string> = {
   voleur: `<path ${TRAIT} d="M8 2 L11 9 L8 12 L5 9 Z M16 12 L19 15 L16 22 L13 15 Z M11 9 L13 15" />`,
   // Luth
   barde: `<circle cx="9" cy="16" r="5" ${TRAIT} /><path ${TRAIT} d="M12.5 12.5 L18 3 M18 3 L21 4 M18 3 L17 6" />`,
-  // Grimoire / orbe
-  mage: `<circle cx="12" cy="9" r="4.5" ${TRAIT} /><path ${TRAIT} d="M5 22 C5 17 8 15 12 15 C16 15 19 17 19 22" /><path ${TRAIT} d="M12 6 L12 9 L14 10.5" />`,
+  // Grimoire / orbe — 3 classes de Mage, même silhouette de base (livre + orbe), accent distinct
+  // par école (voir écart Mage documenté dans CLAUDE.md).
+  "mage-elementaire": `<circle cx="12" cy="9" r="4.5" ${TRAIT} /><path ${TRAIT} d="M5 22 C5 17 8 15 12 15 C16 15 19 17 19 22" /><path ${TRAIT} d="M12 3.5 L12 5.5 M8.3 5.8 L9.6 7.1 M15.7 5.8 L14.4 7.1" />`,
+  "mage-noir": `<circle cx="12" cy="9" r="4.5" ${TRAIT} /><path ${TRAIT} d="M5 22 C5 17 8 15 12 15 C16 15 19 17 19 22" /><circle cx="10.3" cy="8.5" r="0.9" fill="currentColor" stroke="none" /><circle cx="13.7" cy="8.5" r="0.9" fill="currentColor" stroke="none" /><path ${TRAIT} d="M10.3 11 L10.8 12 M13.7 11 L13.2 12" />`,
+  "mage-blanc": `<circle cx="12" cy="9" r="4.5" ${TRAIT} /><path ${TRAIT} d="M5 22 C5 17 8 15 12 15 C16 15 19 17 19 22" /><path ${TRAIT} d="M12 4 L12 6 M12 12 L12 14 M8 9 L10 9 M14 9 L16 9" />`,
   // Hache
   berserker: `<path ${TRAIT} d="M12 3 L12 21" /><path ${TRAIT} d="M12 4 C6 4 4 8 4 10 C7 10 10 9 12 7 C14 9 17 10 20 10 C20 8 18 4 12 4 Z" />`,
   // Marteau / engrenage

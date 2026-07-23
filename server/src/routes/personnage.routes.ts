@@ -37,6 +37,10 @@ const FAMILLES_MULTI_SLOTS: Record<string, readonly string[]> = {
   BRACELET: ["BRACELET_1", "BRACELET_2"],
 };
 
+/** Les 3 classes de Mage (cf. écart documenté dans CLAUDE.md : le Codex modélise "le Mage" comme
+ * 1 classe à 3 écoles choisies à la création, implémenté ici comme 3 classes indépendantes). */
+const CLASSES_MAGE = ["mage-elementaire", "mage-noir", "mage-blanc"];
+
 /** Stuff verrouillé et gratuit du Mage, assigné automatiquement à la création (cf. Codex de l'Équipement). */
 const STUFF_SPAWN_MAGE = [
   { objetId: "baton-apprenti", emplacement: "MAIN_DROITE" },
@@ -95,7 +99,7 @@ personnageRouter.post("/", async (req, res) => {
       });
 
       // Stuff verrouillé et gratuit du Mage — assigné directement, jamais via la route boutique.
-      if (classeId === "mage") {
+      if (CLASSES_MAGE.includes(classeId)) {
         for (const item of STUFF_SPAWN_MAGE) {
           await tx.inventairePersonnage.create({
             data: {

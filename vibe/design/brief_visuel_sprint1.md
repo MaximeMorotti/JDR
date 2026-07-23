@@ -422,14 +422,64 @@ direction précise à donner pour l'instant, **sauf** :
 
 ## Ordre de travail confirmé par l'utilisateur
 
-1. **Palette + police + écran sélection race (étoile détaillée + effet 3D)** ← étape en cours
-2. Commit
-3. Animations de transition par race → test utilisateur
+1. ✅ Palette + police + écran sélection race (étoile détaillée + effet 3D) — commité (`3a32627`)
+2. ✅ Commit
+3. ✅ Animations de transition par race — implémentées, décrites et validées par l'utilisateur
+   avant codage (voir section dédiée ci-dessous) → **en attente du test utilisateur** avant de
+   passer à l'étape 4
 4. Layout page équipe (habillage visuel)
 5. Animation des pièces (transition boutique)
 6. Boutique (refonte complète : mannequin, filtres, liste)
 7. Compagnons (héritera du style, peu de travail spécifique attendu)
 8. Récapitulatif général (radar + images + layout fluide)
+
+### ✅ Étape 3 — Animations de transition par race (implémentée, feu vert utilisateur reçu)
+
+Méthode suivie : description textuelle détaillée de chaque animation envoyée à l'utilisateur
+**avant** tout code ("afin que tu ne code pas pour rien"), validée explicitement ("ça me plait
+bien je te donne le feu vert"), puis implémentation.
+
+Remplace l'ancien placeholder (couleur unie + emoji + balayage CSS) dans
+`client/src/components/transition-race.ts` + section correspondante de `style.css`. Toujours en
+CSS/SVG pur, calque plein écran (`position: fixed`) créé/retiré par `jouerTransitionRace(raceId)`,
+durée totale portée en CSS via une variable `--duree-totale` posée par JS (source unique, pas de
+duplication de durée entre le `setTimeout` JS et l'`animation-duration` CSS).
+
+- **Humain** (1100ms) : deux battants de porte (texture bois en bandes, `rotateY` avec
+  `perspective` sur le conteneur, origine sur le bord extérieur), légère anticipation avant
+  ouverture, `cubic-bezier` avec dépassement en fin de course. Lumière ambre en `radial-gradient`
+  derrière, 3 particules de poussière montantes.
+- **Elfe** (1300ms) : 22 feuilles (2 silhouettes SVG, 4 teintes vert/or/bouleau), montée du bas
+  vers le haut (`ease-in-out`), dérive horizontale via un calque `.particule-vent` séparé,
+  rotation continue via `.particule-rotation` (linear), délais aléatoires par feuille.
+- **Nain** (1150ms) : 18 gemmes facettées (polygones, 5 teintes), chute du haut vers le bas en
+  `cubic-bezier` accélérée (gravité), reste opaque jusqu'à sortir de l'écran (contrairement à la
+  feuille qui s'estompe), scintillement (`drop-shadow` pulsé) à mi-parcours.
+- **Demi-Orc** (1000ms) : 14 ossements (silhouette d'os + silhouette de crâne, teintes
+  ivoire/rouge-brun), traversée d'un bord aléatoire de l'écran à un autre bord aléatoire différent
+  (pas juste haut/bas), rotation heurtée via `steps(8, end)` (effet cliquetis), voile de poussière
+  d'impact en surimpression pulsée. **Vérifié visuellement** (capture d'écran, animations figées à
+  un instant donné via `Animation.currentTime`) : particules bien dispersées avec des
+  positions/rotations variées, confirmant que l'interpolation CSS fonctionne correctement.
+- **Mage** (1450ms, structure différente des 4 autres — pas de particules traversantes) :
+  matérialisation rituelle en 3 temps. Un cercle (`stroke-dasharray`/`stroke-dashoffset` animés)
+  se trace en 55% du temps total ; 10 runes originales (glyphes géométriques simples, pas
+  d'alphabet runique existant copié) apparaissent en fondu à des positions réparties en cercle
+  (technique `rotate(angle) translate(rayon) rotate(-angle)`, la même astuce que pour l'étoile de
+  race) avec un délai croissant façon tracé horaire ; un voile violet et un flash final
+  (`radial-gradient` pulsé) referment la séquence.
+
+**Vérification technique effectuée** : `npx tsc --noEmit` propre, aucune erreur console sur les 5
+races testées en navigateur (création de personnage réelle via le flux complet, à chaque fois
+suivie d'une navigation correcte vers `/equipe`), comptages DOM corrects (18 `.particule--gemme`,
+10 `.rune-mage`, 14 os). **Limite rencontrée** : l'outil de capture d'écran du navigateur intégré
+est devenu indisponible en cours de session (timeout persistant, y compris sur un nouvel onglet et
+après rechargement — problème d'infrastructure de l'outil, pas du code : le rendu de page restait
+fonctionnel via `get_page_text`/`javascript_exec` pendant ce temps). Seule la transition Demi-Orc a
+pu être confirmée par une capture visuelle réelle avant que l'outil ne se bloque ; Humain/Elfe/
+Nain/Mage n'ont été vérifiées que par les moyens ci-dessus (pas de captures d'écran). **Le test
+utilisateur en conditions réelles reste donc la validation de référence pour cette étape** avant de
+passer au layout de la page équipe.
 
 **Règle de méthode donnée par l'utilisateur** : avancer étape par étape, ne pas tout faire d'un
 coup, committer entre les étapes, tester avant de continuer sur la suivante.

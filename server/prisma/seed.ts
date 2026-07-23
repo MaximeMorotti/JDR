@@ -143,13 +143,32 @@ const classes = [
     armureMax: "LEGERE",
     armesInterdites: "Armes lourdes, objets magiques.",
   },
+  // Le Codex modélise "le Mage" comme 1 classe à 3 écoles choisies à la création ; on l'implémente
+  // comme 3 classes indépendantes (écart documenté dans CLAUDE.md) car l'école est un choix
+  // structurant fait une fois pour toutes, pas un arbre de compétences différé comme les vraies
+  // spécialisations — chacune garde ainsi exactement 4 spécialisations, comme les autres classes.
   {
-    id: "mage",
-    nom: "Mage",
+    id: "mage-elementaire",
+    nom: "Mage Élémentaire",
     type: "EXCLUSIVE",
-    roleCombat: "Sorts à distance, magie.",
+    roleCombat: "Sorts à distance élémentaires (feu, eau, air, terre).",
     armureMax: "AUCUNE",
-    aBesoinEcole: true,
+    armesInterdites: "Armes lourdes, armes de jet, armes de corps-à-corps classiques, armure (malus).",
+  },
+  {
+    id: "mage-noir",
+    nom: "Mage Noir",
+    type: "EXCLUSIVE",
+    roleCombat: "Sorts à distance occultes : nécromancie, malédictions, invocations démoniaques.",
+    armureMax: "AUCUNE",
+    armesInterdites: "Armes lourdes, armes de jet, armes de corps-à-corps classiques, armure (malus).",
+  },
+  {
+    id: "mage-blanc",
+    nom: "Mage Blanc",
+    type: "EXCLUSIVE",
+    roleCombat: "Sorts à distance sacrés : soin, lumière, protection.",
+    armureMax: "AUCUNE",
     armesInterdites: "Armes lourdes, armes de jet, armes de corps-à-corps classiques, armure (malus).",
   },
   {
@@ -201,7 +220,9 @@ const classesAutoriseesParRace: { raceId: string; classeId: string; deconseille?
   { raceId: "demi-orc", classeId: "barde" },
   { raceId: "mage", classeId: "barde" },
 
-  { raceId: "mage", classeId: "mage" },
+  { raceId: "mage", classeId: "mage-elementaire" },
+  { raceId: "mage", classeId: "mage-noir" },
+  { raceId: "mage", classeId: "mage-blanc" },
   { raceId: "demi-orc", classeId: "berserker" },
   { raceId: "nain", classeId: "ingenieur" },
   { raceId: "elfe", classeId: "chasseur-sylvestre" },
@@ -223,7 +244,9 @@ const categoriesArmesAutoriseesParClasse: { classeId: string; categorie: string 
   { classeId: "chasseur-sylvestre", categorie: "ARME_LEGERE" },
   { classeId: "chasseur-sylvestre", categorie: "ARME_DISTANCE" },
   { classeId: "chasseur-sylvestre", categorie: "COMPAGNON" },
-  { classeId: "mage", categorie: "OBJET_MAGIQUE" },
+  { classeId: "mage-elementaire", categorie: "OBJET_MAGIQUE" },
+  { classeId: "mage-noir", categorie: "OBJET_MAGIQUE" },
+  { classeId: "mage-blanc", categorie: "OBJET_MAGIQUE" },
   { classeId: "berserker", categorie: "ARME_LOURDE" },
   { classeId: "ingenieur", categorie: "ARME_LOURDE" },
   { classeId: "ingenieur", categorie: "OUTIL_ENGIN" },
@@ -235,7 +258,6 @@ const categoriesArmesAutoriseesParClasse: { classeId: string; categorie: string 
 
 type Specialisation = {
   classeId: string;
-  ecole?: string;
   nom: string;
   description: string;
   attaqueSignature: string;
@@ -260,24 +282,24 @@ const specialisations: Specialisation[] = [
   { classeId: "barde", nom: "Orateur", description: "Maître de l'éloquence et de la persuasion, ses mots influencent les esprits.", attaqueSignature: "Verbe incisif : tirade cinglante qui déstabilise un adversaire, réduisant sa concentration, sa précision ou sa volonté de combattre." },
   { classeId: "barde", nom: "Danseur gymnaste", description: "Combine danse, rythme et gymnastique dans un style de combat élégant.", attaqueSignature: "Keri Pointe : danse distrayante se terminant par un coup de pied à la tête. Dégâts critiques élevés, plus étourdissement." },
 
-  // Mage — École Élémentaire
-  { classeId: "mage", ecole: "ELEMENTAIRE", nom: "Pyromancien", description: "Maîtrise le feu (boules de feu, murs de flammes, explosions, combustion), très offensif.", attaqueSignature: "Flammèche : propulse une flamme plus ou moins puissante depuis sa main." },
-  { classeId: "mage", ecole: "ELEMENTAIRE", nom: "Hydromancien", description: "Manipule l'eau (vagues, soins légers, brouillard, contrôle des courants).", attaqueSignature: "Pistolet à eau : jet d'eau haute pression projeté jusqu'à environ 20 m." },
-  { classeId: "mage", ecole: "ELEMENTAIRE", nom: "Aéromancien", description: "Contrôle le vent et l'air (rafales, tornades, sustentation, vitesse).", attaqueSignature: "Dash : propulsion d'air sous les pieds, généralement utilisée pour se déplacer." },
-  { classeId: "mage", ecole: "ELEMENTAIRE", nom: "Géomancien", description: "Manipule la terre, la roche et parfois les cristaux (murs, séismes, armures de pierre).", attaqueSignature: "Le Mur : élève une colonne de terre plus ou moins large qui protège le joueur ou son équipe." },
+  // Mage Élémentaire
+  { classeId: "mage-elementaire", nom: "Pyromancien", description: "Maîtrise le feu (boules de feu, murs de flammes, explosions, combustion), très offensif.", attaqueSignature: "Flammèche : propulse une flamme plus ou moins puissante depuis sa main." },
+  { classeId: "mage-elementaire", nom: "Hydromancien", description: "Manipule l'eau (vagues, soins légers, brouillard, contrôle des courants).", attaqueSignature: "Pistolet à eau : jet d'eau haute pression projeté jusqu'à environ 20 m." },
+  { classeId: "mage-elementaire", nom: "Aéromancien", description: "Contrôle le vent et l'air (rafales, tornades, sustentation, vitesse).", attaqueSignature: "Dash : propulsion d'air sous les pieds, généralement utilisée pour se déplacer." },
+  { classeId: "mage-elementaire", nom: "Géomancien", description: "Manipule la terre, la roche et parfois les cristaux (murs, séismes, armures de pierre).", attaqueSignature: "Le Mur : élève une colonne de terre plus ou moins large qui protège le joueur ou son équipe." },
 
-  // Mage — École Noire
-  { classeId: "mage", ecole: "NOIRE", nom: "Nécromancien", description: "Anime les morts, contrôle squelettes et fantômes, manipule les âmes et la mort.", attaqueSignature: "Rise : relève un ennemi mineur récemment mort au combat pour combattre à ses côtés." },
-  { classeId: "mage", ecole: "NOIRE", nom: "Maléficien", description: "Spécialiste des malédictions, affaiblissements, poisons et souffrances magiques.", attaqueSignature: "Véhèmka : malédiction infligeant un débuff aléatoire à l'ennemi." },
-  { classeId: "mage", ecole: "NOIRE", nom: "Démonologue", description: "Invoque et contrôle des démons, ou pactise avec des entités démoniaques pour s'octroyer des buffs.", attaqueSignature: "Pentacle : octroie un buff à l'équipe ou à soi-même en sacrifiant des PV." },
-  { classeId: "mage", ecole: "NOIRE", nom: "Umbrancien", description: "Manipule les ténèbres, les ombres et le vide.", attaqueSignature: "Dark Paralysis : le joueur marche sur l'ombre de l'ennemi, le paralysant." },
+  // Mage Noir
+  { classeId: "mage-noir", nom: "Nécromancien", description: "Anime les morts, contrôle squelettes et fantômes, manipule les âmes et la mort.", attaqueSignature: "Rise : relève un ennemi mineur récemment mort au combat pour combattre à ses côtés." },
+  { classeId: "mage-noir", nom: "Maléficien", description: "Spécialiste des malédictions, affaiblissements, poisons et souffrances magiques.", attaqueSignature: "Véhèmka : malédiction infligeant un débuff aléatoire à l'ennemi." },
+  { classeId: "mage-noir", nom: "Démonologue", description: "Invoque et contrôle des démons, ou pactise avec des entités démoniaques pour s'octroyer des buffs.", attaqueSignature: "Pentacle : octroie un buff à l'équipe ou à soi-même en sacrifiant des PV." },
+  { classeId: "mage-noir", nom: "Umbrancien", description: "Manipule les ténèbres, les ombres et le vide.", attaqueSignature: "Dark Paralysis : le joueur marche sur l'ombre de l'ennemi, le paralysant." },
 
-  // Mage — École Blanche
-  { classeId: "mage", ecole: "BLANCHE", nom: "Luminomancien", description: "Manipule la lumière sacrée pour blesser les créatures sombres et protéger ses alliés.", attaqueSignature: "Flash : éclaire une zone sombre et aveugle les ennemis proches." },
-  { classeId: "mage", ecole: "BLANCHE", nom: "Guérisseur", description: "Soigne blessures, maladies et poisons ; mage de soutien.", attaqueSignature: "Mercurotrom : soigne à distance (soi-même ou un allié)." },
-  { classeId: "mage", ecole: "BLANCHE", nom: "Exorciste", description: "Combat esprits, fantômes et démons en les bannissant ; très efficace contre les malédictions.", attaqueSignature: "Vague sainte : repousse les ennemis, dégâts doublés contre les morts-vivants." },
-  { classeId: "mage", ecole: "BLANCHE", nom: "Oracle", description: "Reçoit des visions, prédit l'avenir, guide les autres ; contrôle la magie de téléportation et du temps.", attaqueSignature: "Xélus : ralentit le temps autour du joueur, permettant des déplacements amplifiés (x2)." },
-  { classeId: "mage", ecole: "BLANCHE", nom: "Astromancien", description: "Utilise la lumière des étoiles et les constellations pour lancer des sorts.", attaqueSignature: "Jet cinétique : plus le jet est réussi, plus l'objet envoyé peut être lourd ou rapide." },
+  // Mage Blanc
+  { classeId: "mage-blanc", nom: "Luminomancien", description: "Manipule la lumière sacrée pour blesser les créatures sombres et protéger ses alliés.", attaqueSignature: "Flash : éclaire une zone sombre et aveugle les ennemis proches." },
+  { classeId: "mage-blanc", nom: "Guérisseur", description: "Soigne blessures, maladies et poisons ; mage de soutien.", attaqueSignature: "Mercurotrom : soigne à distance (soi-même ou un allié)." },
+  { classeId: "mage-blanc", nom: "Exorciste", description: "Combat esprits, fantômes et démons en les bannissant ; très efficace contre les malédictions.", attaqueSignature: "Vague sainte : repousse les ennemis, dégâts doublés contre les morts-vivants." },
+  { classeId: "mage-blanc", nom: "Oracle", description: "Reçoit des visions, prédit l'avenir, guide les autres ; contrôle la magie de téléportation et du temps.", attaqueSignature: "Xélus : ralentit le temps autour du joueur, permettant des déplacements amplifiés (x2)." },
+  { classeId: "mage-blanc", nom: "Astromancien", description: "Utilise la lumière des étoiles et les constellations pour lancer des sorts.", attaqueSignature: "Jet cinétique : plus le jet est réussi, plus l'objet envoyé peut être lourd ou rapide." },
 
   // Berserker
   { classeId: "berserker", nom: "Brise-crâne", description: "Combattant privilégiant la force brute et les armes lourdes ; chaque coup peut fracasser les défenses ennemies.", attaqueSignature: "Fracassement : coup asséné avec ses deux armes en même temps, d'une violence extrême." },
@@ -529,7 +551,7 @@ const compagnons: Compagnon[] = [
     pv: 12, force: 3, dexterite: 11, vitalite: 6, intelligence: 8,
     capaciteTransport: "Illimitée, mais uniquement pour les objets alchimiques (potions, ingrédients) — poids nul pour ces objets.",
     attaques: "Projection alchimique (2-4) : dégâts magiques, effet aléatoire léger (poison/feu/givre). Mélange d'urgence : prépare une potion gratuitement, une fois par combat.",
-    classesLiees: ["mage"],
+    classesLiees: ["mage-elementaire", "mage-noir", "mage-blanc"],
   },
   {
     id: "sanglier-dresse",

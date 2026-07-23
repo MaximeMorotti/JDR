@@ -2,6 +2,11 @@ import { api, type Objet, type Personnage } from "../api";
 import { naviguer } from "../router";
 import { state } from "../state";
 
+/** Les 3 classes de Mage — voir écart documenté dans CLAUDE.md (le Codex modélise "le Mage" comme
+ * 1 classe à 3 écoles ; implémenté ici comme 3 classes indépendantes). Toutes démarrent avec le
+ * même stuff verrouillé au Sprint 1. */
+const CLASSES_MAGE = ["mage-elementaire", "mage-noir", "mage-blanc"];
+
 const LABEL_SLOT: Record<string, string> = {
   TETE: "Tête",
   TORSE: "Torse",
@@ -57,7 +62,7 @@ export async function renderEquipement(app: HTMLElement, params: { personnageId:
       <h2>${personnage.pseudo} — ${personnage.race.nom} ${personnage.classe.nom}${personnage.specialisation ? " · " + personnage.specialisation.nom : ""}</h2>
 
       ${
-        personnage.classeId === "mage"
+        CLASSES_MAGE.includes(personnage.classeId)
           ? `<div class="stuff-verrouille">🔒 Stuff de Mage verrouillé : Bâton d'apprenti, Grimoire d'apprenti et Robe d'apprenti sont assignés automatiquement et gratuitement, ils ne s'achètent pas en boutique.</div>`
           : ""
       }
@@ -98,7 +103,7 @@ export async function renderEquipement(app: HTMLElement, params: { personnageId:
     zoneEmplacements.innerHTML = TOUS_LES_SLOTS.map((slot) => {
       const item = personnage.inventaire.find((i) => i.emplacement === slot);
       if (!item) return `<div class="emplacement"><span class="nom-slot">${LABEL_SLOT[slot]}</span><span>—</span></div>`;
-      const retirable = item.prixPaye > 0 || personnage.classeId !== "mage" || item.objet.origine !== "SPAWN_GRATUIT";
+      const retirable = item.prixPaye > 0 || !CLASSES_MAGE.includes(personnage.classeId) || item.objet.origine !== "SPAWN_GRATUIT";
       return `
         <div class="emplacement occupe">
           <span class="nom-slot">${LABEL_SLOT[slot]}</span>

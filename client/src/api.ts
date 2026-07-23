@@ -44,7 +44,6 @@ export type Classe = {
   type: string;
   roleCombat: string;
   armureMax: string;
-  aBesoinEcole: boolean;
   armesInterdites: string;
   racesAutorisees: RaceAutorisee[];
   categoriesArmesAutorisees: { classeId: string; categorie: string }[];
@@ -53,7 +52,6 @@ export type Classe = {
 export type Specialisation = {
   id: string;
   classeId: string;
-  ecole: string | null;
   nom: string;
   description: string;
   attaqueSignature: string;

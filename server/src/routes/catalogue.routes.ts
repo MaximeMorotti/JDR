@@ -21,11 +21,11 @@ catalogueRouter.get("/classes", async (_req, res) => {
   res.json(classes);
 });
 
-/** GET /api/catalogue/classes/:classeId/specialisations — spécialisations d'une classe (école incluse pour le Mage). */
+/** GET /api/catalogue/classes/:classeId/specialisations — spécialisations d'une classe. */
 catalogueRouter.get("/classes/:classeId/specialisations", async (req, res) => {
   const specialisations = await prisma.specialisationRef.findMany({
     where: { classeId: req.params.classeId },
-    orderBy: [{ ecole: "asc" }, { nom: "asc" }],
+    orderBy: { nom: "asc" },
   });
   res.json(specialisations);
 });

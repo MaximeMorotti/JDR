@@ -209,32 +209,11 @@ export async function renderCreationPersonnage(app: HTMLElement) {
       </p>
     `;
 
-    if (classe.aBesoinEcole) {
-      const ecoles = ["ELEMENTAIRE", "NOIRE", "BLANCHE"];
-      const labels: Record<string, string> = { ELEMENTAIRE: "École Élémentaire", NOIRE: "École Noire", BLANCHE: "École Blanche" };
-      zoneSpecs.innerHTML = `
-        <h3>Spécialisations à venir</h3>
-        ${introduction}
-        ${ecoles
-          .map(
-            (ecole) => `
-          <div class="groupe-ecole">
-            <h3>${labels[ecole]}</h3>
-            <div class="grille-specs">
-              ${specialisations.filter((s) => s.ecole === ecole).map(carteHtml).join("")}
-            </div>
-          </div>
-        `
-          )
-          .join("")}
-      `;
-    } else {
-      zoneSpecs.innerHTML = `
-        <h3>Spécialisations à venir</h3>
-        ${introduction}
-        <div class="grille-specs">${specialisations.map(carteHtml).join("")}</div>
-      `;
-    }
+    zoneSpecs.innerHTML = `
+      <h3>Spécialisations à venir</h3>
+      ${introduction}
+      <div class="grille-specs">${specialisations.map(carteHtml).join("")}</div>
+    `;
   }
 
   btnSuivant.addEventListener("click", async () => {

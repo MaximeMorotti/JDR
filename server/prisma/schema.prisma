@@ -115,7 +115,12 @@ model RaceRef {
   @@map("races_ref")
 }
 
-/// Catalogue des 7 classes (génériques + exclusives).
+/// Catalogue des 9 classes (génériques + exclusives). Le Mage du Codex (1 classe, 3 écoles
+/// choisies à la création) est modélisé ici comme 3 classes indépendantes et exclusives à la
+/// race Mage — Mage Élémentaire / Mage Noir / Mage Blanc — chacune avec ses ~4 spécialisations
+/// propres. Écart documenté explicitement dans CLAUDE.md (école confondue avec une spécialisation
+/// différée dans une première implémentation ; corrigé car le Codex traite l'école comme un choix
+/// structurant fait à la création, pas un arbre de compétences à débloquer).
 model ClasseRef {
   id String @id
 
@@ -124,7 +129,6 @@ model ClasseRef {
   roleCombat      String
   /// Niveau d'armure maximum autorisé : AUCUNE | LEGERE | MOYENNE | LOURDE
   armureMax       String
-  aBesoinEcole    Boolean @default(false) // true uniquement pour le Mage (école obligatoire à la création)
   armesInterdites String // texte libre, résumé des interdictions transversales (cf. Codex des Classes)
 
   personnages               Personnage[]
@@ -167,21 +171,19 @@ model CategorieArmeAutoriseeParClasse {
   @@map("categories_armes_autorisees")
 }
 
-/// Catalogue des 38 spécialisations (4-5 par classe, 3 écoles x4 pour le Mage).
+/// Catalogue des 38 spécialisations (4-5 par classe, y compris chaque classe de Mage).
 model SpecialisationRef {
   id String @id @default(cuid())
 
   classeId         String
   classe           ClasseRef @relation(fields: [classeId], references: [id])
-  /// Uniquement renseigné pour le Mage : ELEMENTAIRE | NOIRE | BLANCHE
-  ecole            String?
   nom              String
   description      String
   attaqueSignature String
 
   personnages Personnage[]
 
-  @@unique([classeId, ecole, nom])
+  @@unique([classeId, nom])
   @@map("specialisations_ref")
 }
 
