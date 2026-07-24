@@ -58,20 +58,28 @@ interface OptionsParticules {
   dureeBase: number;
   dureeVariation: number;
   delaiMax: number;
+  tailleMin?: number;
+  tailleMax?: number;
+  /** "px" (défaut) = taille fixe ; "vw" = taille proportionnelle à la largeur d'écran, pour une
+   * couverture visuelle cohérente quelle que soit la taille de la fenêtre (utile pour "inonder"
+   * l'écran, ce qu'une taille en px fixe ne garantit pas sur un grand écran). */
+  tailleUnite?: "px" | "vw";
   icone: () => string;
 }
 
 function champDeParticules(opts: OptionsParticules): string {
   let html = "";
+  const unite = opts.tailleUnite ?? "px";
   for (let i = 0; i < opts.nombre; i++) {
     const delai = alea(0, opts.delaiMax).toFixed(2);
     const duree = (opts.dureeBase + Math.random() * opts.dureeVariation).toFixed(2);
-    const x = alea(2, 96).toFixed(1);
+    const x = alea(-4, 100).toFixed(1);
     const derive = alea(-20, 20).toFixed(1);
-    const taille = Math.round(alea(22, 46));
+    const taille = alea(opts.tailleMin ?? 22, opts.tailleMax ?? 46);
+    const tailleStr = unite === "vw" ? taille.toFixed(2) : Math.round(taille).toString();
     const tours = `${Math.random() < 0.5 ? "-" : ""}${alea(1, 2.4).toFixed(2)}turn`;
     html += `
-      <div class="${opts.classeParticule}" style="--delai:${delai}s;--duree:${duree}s;--x:${x}vw;--derive:${derive}vw;--taille:${taille}px">
+      <div class="${opts.classeParticule}" style="--delai:${delai}s;--duree:${duree}s;--x:${x}vw;--derive:${derive}vw;--taille:${tailleStr}${unite}">
         <span class="particule-vent">
           <span class="particule-rotation" style="--tours:${tours}">${opts.icone()}</span>
         </span>
@@ -136,11 +144,14 @@ function construireHumain(overlay: HTMLElement): number {
 function construireElfe(overlay: HTMLElement): number {
   overlay.classList.add("transition-particules", "transition-elfe");
   overlay.innerHTML = champDeParticules({
-    nombre: 22,
+    nombre: 130,
     classeParticule: "particule particule--feuille",
     dureeBase: 1.8,
     dureeVariation: 0.9,
-    delaiMax: 0.6,
+    delaiMax: 0.8,
+    tailleMin: 3.2,
+    tailleMax: 6.8,
+    tailleUnite: "vw",
     icone: () => {
       const forme = FEUILLES[Math.floor(Math.random() * FEUILLES.length)];
       const couleur = COULEURS_FEUILLE[Math.floor(Math.random() * COULEURS_FEUILLE.length)];

@@ -793,12 +793,15 @@ button {
 
 .particule {
   position: absolute;
-  top: 50%;
   left: var(--x);
   width: var(--taille);
   height: var(--taille);
   margin-top: calc(var(--taille) / -2);
 }
+/* Ancrage vertical au bord de départ réel (pas au centre), pour que le mouvement parte bien de
+   hors-écran plutôt que de sembler apparaître au milieu. */
+.particule--feuille { top: 100%; }
+.particule--gemme { top: 0%; }
 
 .particule-vent {
   display: block;
@@ -830,20 +833,22 @@ button {
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
 }
 
-/* Elfe : balaie de bas en haut, dérive douce, s'estompe en sortie */
+/* Elfe : part vraiment de sous l'écran (ancre top:100%), balaie de bas en haut, dérive douce,
+   s'estompe en sortie tout en haut. */
 .particule--feuille { animation: montee-particule var(--duree) ease-in-out var(--delai) both; }
 @keyframes montee-particule {
-  0% { transform: translateY(15vh); opacity: 0; }
-  10% { opacity: 1; }
-  100% { transform: translateY(-130vh); opacity: 0; }
+  0% { transform: translateY(8vh); opacity: 0; }
+  8% { opacity: 1; }
+  100% { transform: translateY(-160vh); opacity: 0; }
 }
 
-/* Nain : chute pesante (accélération), reste opaque jusqu'à sortir de l'écran */
+/* Nain : part vraiment de sous le haut de l'écran (ancre top:0%), chute pesante (accélération),
+   reste opaque jusqu'à sortir en bas. */
 .particule--gemme { animation: chute-particule var(--duree) cubic-bezier(0.55, 0, 1, 1) var(--delai) both; }
 @keyframes chute-particule {
-  0% { transform: translateY(-15vh); opacity: 0; }
-  10% { opacity: 1; }
-  100% { transform: translateY(130vh); opacity: 1; }
+  0% { transform: translateY(-8vh); opacity: 0; }
+  8% { opacity: 1; }
+  100% { transform: translateY(160vh); opacity: 1; }
 }
 .particule--gemme .particule-rotation svg {
   animation: scintillement var(--duree) ease-in-out var(--delai) both;

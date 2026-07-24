@@ -545,11 +545,44 @@ supprimées.
 `left/right:5px` de l'ancienne mise en page CSS) → marges retirées, `.battant` occupe maintenant
 tout l'écran (`top:0;bottom:0;width:50%`), `object-fit: cover` évite toute déformation visible.
 
-**Statut Humain : validé par l'utilisateur**, prêt pour le commit "fixup transition Humain" avant
-de passer à l'Elfe.
+**Statut Humain : validé par l'utilisateur, commité** (`fc29fb2`).
 
-#### Elfe, Nain, Demi-Orc, Mage — pas encore retravaillés
+#### Elfe — EN COURS (retouches faites, pas encore de retour utilisateur sur le rendu final)
+
+Retour utilisateur : (1) les feuilles SVG dessinées à la main manquent de réalisme — demande de
+prompts d'image pour en générer de vraies (comme la porte), (2) pas assez dense — le but de
+l'effet est d'inonder l'écran pour masquer la coupure de page à un moment, (3) **bug** : les
+feuilles semblaient apparaître depuis le milieu de l'écran plutôt que de partir du bas.
+
+Corrections appliquées :
+- **Bug d'ancrage corrigé** : `.particule` utilisait `top:50%` comme point d'ancrage pour tous les
+  types, avec un décalage de départ trop faible (`translateY(15vh)`) pour sortir réellement de
+  l'écran sur un viewport haut. Chaque type a maintenant son propre ancrage réel
+  (`.particule--feuille{top:100%}` = bord bas, `.particule--gemme{top:0%}` = bord haut) et un
+  parcours bien plus long (`translateY(±160vh)` au lieu de `130vh`), garantissant un vrai départ
+  hors-écran. Corrige potentiellement le même souci pour le Nain (pas encore confirmé par
+  l'utilisateur, à vérifier à son tour).
+- **Densité fortement augmentée** : 22 → 130 feuilles. Taille passée de px fixe à **vw** (nouveau
+  paramètre `tailleUnite` sur `champDeParticules`, 3.2–6.8vw) pour que la couverture visuelle reste
+  proportionnelle à la largeur d'écran réelle plutôt que de s'éclaircir sur un grand écran avec une
+  taille en px fixe. Non encore vérifié visuellement de façon fiable sur un large viewport (outil
+  de capture d'écran instable à 900px+ de large durant cette session — cf. limite déjà notée pour
+  Demi-Orc/Mage plus haut) ; fonctionnellement vérifié en DOM (130 éléments présents, positions
+  réparties `-4vw` à `100vw`) et visuellement correct sur un viewport mobile étroit (375px).
+  **Reste à confirmer en conditions réelles par l'utilisateur** avant de considérer l'étape close.
+
+**Prompts d'image fournis à l'utilisateur** (même style que la porte — vue plate de face, fond
+blanc, semi-réaliste dark fantasy), pour 3 feuilles distinctes réutilisables aléatoirement :
+1. Feuille de chêne dorée/orangée (5 lobes)
+2. Feuille de bouleau pâle vert sauge (ovale dentelée)
+3. Feuille de lierre elfique vert forêt à bord doré (allongée pointue)
+
+Une fois les images reçues : même traitement que `detourer-porte.mjs` (seuillage alpha blanc→
+transparent), export WebP, remplacement des SVG dessinés à la main dans `FEUILLES`/
+`COULEURS_FEUILLE` (`transition-race.ts`) par un tableau d'images.
+
+#### Nain, Demi-Orc, Mage — pas encore retravaillés
 
 Retour un par un, dans cet ordre, en suivant la même méthode (question ciblée par
-`AskUserQuestion` avant de coder). Rien n'est encore modifié pour ces 4 races au-delà du
+`AskUserQuestion` avant de coder). Rien n'est encore modifié pour ces 3 races au-delà du
 rallongement de durée déjà appliqué.
