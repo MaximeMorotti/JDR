@@ -195,28 +195,58 @@ function construireDemiOrc(overlay: HTMLElement): number {
   return 1900;
 }
 
+/**
+ * Runes éjectées radialement depuis le centre au moment du "relâchement" du cercle (cf.
+ * cercle-rotation/cercle-echelle) — même mécanique que l'explosion de la pile d'ossements
+ * (explosion-radiale), mais fenêtre de délai décalée pour ne partir qu'à ce moment précis plutôt
+ * que dès le début de la scène.
+ */
+// Dégradé magenta → violet → bleu → cyan, calqué sur le dégradé réel de l'illustration du cercle
+// (docs/img/transition/cercle magique.png) plutôt qu'une teinte violette fixe.
+const COULEURS_RUNE = ["#e64ce0", "#b34cf0", "#8a5cf5", "#5c7ff5", "#4cc9f0"];
+
+function explosionRunes(nombre: number, origineX: number, origineY: number, rayonDepart: number, delaiMin: number, delaiMax: number): string {
+  let html = "";
+  for (let i = 0; i < nombre; i++) {
+    // Départ sur le bord de l'anneau (pas au centre) ; la rune continue ensuite dans le
+    // prolongement du même rayon, pour lire comme une éjection depuis l'extrémité du cercle.
+    const angle = alea(0, 360) * (Math.PI / 180);
+    const distance = alea(35, 65);
+    const depX = origineX + Math.cos(angle) * rayonDepart;
+    const depY = origineY + Math.sin(angle) * rayonDepart;
+    const dx = Math.cos(angle) * distance;
+    const dy = Math.sin(angle) * distance;
+    const forme = RUNES[i % RUNES.length];
+    const couleur = COULEURS_RUNE[Math.floor(Math.random() * COULEURS_RUNE.length)];
+    const delai = alea(delaiMin, delaiMax).toFixed(2);
+    const duree = alea(0.5, 0.85).toFixed(2);
+    const taille = alea(2.4, 4.2).toFixed(2);
+    const tours = `${Math.random() < 0.5 ? "-" : ""}${Math.round(alea(1, 3))}turn`;
+    html += `
+      <div class="particule particule--rune" style="left:${depX.toFixed(1)}vw;top:${depY.toFixed(1)}vh;--dx:${dx.toFixed(1)}vw;--dy:${dy.toFixed(1)}vh;--delai:${delai}s;--duree:${duree}s;--taille:${taille}vw">
+        <span class="particule-rotation" style="--tours:${tours}"><svg viewBox="0 0 24 24" style="color:${couleur}">${forme}</svg></span>
+      </div>`;
+  }
+  return html;
+}
+
 function construireMage(overlay: HTMLElement): number {
   overlay.classList.add("transition-mage");
-  const nombre = 10;
-  const runes = Array.from({ length: nombre })
-    .map((_, i) => {
-      const angle = (360 / nombre) * i;
-      const rayon = alea(24, 30).toFixed(1);
-      const delai = (1.0 + (i / nombre) * 0.9).toFixed(2);
-      const forme = RUNES[i % RUNES.length];
-      return `
-        <span class="rune-mage" style="--angle:${angle}deg;--rayon:${rayon}vh;--delai:${delai}s">
-          <svg viewBox="0 0 24 24">${forme}</svg>
-        </span>`;
-    })
-    .join("");
+  const duree = 2600;
+  // Les runes ne s'éjectent qu'au moment du relâchement du cercle (~58% de la durée), depuis le
+  // bord de l'anneau (rayonDepart ≈ moitié du conteneur 92vh), pas avant ni depuis le centre.
+  const runes = explosionRunes(90, 50, 50, 27, (duree * 0.58) / 1000, (duree * 0.85) / 1000);
   overlay.innerHTML = `
     <div class="voile-mage"></div>
-    <svg class="cercle-mage" viewBox="0 0 200 200"><circle cx="100" cy="100" r="80" /></svg>
+    <div class="cercle-mage-scale">
+      <div class="cercle-mage-rotate">
+        <img class="cercle-mage" src="/img/transition/cercle.webp" alt="" />
+      </div>
+    </div>
     ${runes}
     <div class="flash-mage"></div>
   `;
-  return 2600;
+  return duree;
 }
 
 const CONSTRUCTEURS: Record<string, (overlay: HTMLElement) => number> = {

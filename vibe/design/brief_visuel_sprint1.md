@@ -716,13 +716,75 @@ au ressenti) : pile posée exactement sur le bord bas à l'atterrissage (bottom 
 812px de fenêtre), aucun os explosé avant ~450ms, écran presque entièrement noir vers 85% de la
 durée. Aucune erreur console à chaque étape.
 
-**Statut Demi-Orc : dernier ajustement (pile ×1.4) appliqué et vérifié techniquement, en attente
-de confirmation finale de l'utilisateur avant commit.**
+**Statut Demi-Orc : validé par l'utilisateur, commité** (`7f0d20e`).
 
-#### Mage — pas encore retravaillé
+#### Mage — refonte complète de la chorégraphie + vraie illustration
 
-Retour à faire en suivant la même méthode (question ciblée par `AskUserQuestion` avant de coder).
-Rien n'est encore modifié au-delà du rallongement de durée déjà appliqué.
+**Round 1 — nouvelle chorégraphie du cercle** (remplace l'ancien "tracé au stroke-dasharray puis
+apparition en cercle des runes"), décrite en détail par l'utilisateur : le cercle apparaît minuscule
+avec un effet de rebond (dépasse sa taille finale puis redescend), tourne un peu dans un sens
+(charge), puis se relâche d'un coup façon ressort — rotation rapide en sens inverse en rétrécissant,
+expulsant des runes dans tous les sens jusqu'à disparaître.
+
+- `.cercle-mage-scale`/`.cercle-mage-rotate` : deux calques imbriqués (comme `.particule-vent`/
+  `.particule-rotation` ailleurs) pour séparer l'échelle (rebond puis rétrécissement) de la
+  rotation (charge lente puis relâchement rapide en sens inverse) — un seul `transform` ne peut
+  pas porter deux timelines indépendantes sur le même élément.
+- **Rebond/ressort portés par `animation-timing-function` posé DANS chaque étape de keyframe**
+  (pas globalement sur l'animation) : `cubic-bezier(0.34, 1.56, 0.64, 1)` (courbe "back-out"
+  standard, dépasse naturellement 1 avant de se stabiliser) pour l'apparition ; easing différent
+  pour la charge (`ease-in`) puis le relâchement (`cubic-bezier(0.7,0,0.85,0.3)`, accélération
+  franche). **Applique directement la leçon retenue sur la pile d'ossements** (un bezier global sur
+  toute l'animation déforme la correspondance keyframe↔temps réel) — ici chaque segment garde son
+  propre easing local, pas de bug de timing constaté.
+- Nouvelle fonction `explosionRunes()` : réutilise le même principe que l'explosion de la pile
+  (`explosion-radiale`, renommée depuis `explosion-os` pour usage partagé) — les runes ne
+  s'éjectent qu'au moment du relâchement (~58% de la durée), pas dès le début.
+- `RUNES`/`COULEURS_RUNE` : SVG placeholder existants réutilisés pour les runes éjectées (l'image
+  reçue de l'utilisateur, voir round 2, sert uniquement pour le cercle central lui-même — "je te
+  laisse gérer pour les runes").
+
+**Round 2 — vraie illustration du cercle.** L'utilisateur a généré et fourni
+`docs/img/transition/cercle magique.png` : un sceau alchimique très ouvragé (anneaux de runes,
+étoiles imbriquées, symboles), dégradé magenta → violet → bleu → cyan, déjà détouré (fond
+transparent, vérifié : alpha=0 aux coins). Nouveau script `client/scripts/convertir-cercle.mjs`
+(conversion simple, pas de seuillage) → `client/public/img/transition/cercle.webp`. Remplace le
+`<svg><circle></svg>` plat par un `<img>` dans `.cercle-mage-rotate` ; CSS `.cercle-mage circle`
+(devenu inutile) supprimé.
+
+**Round 3 — 3 retours après premier essai avec l'image réelle** :
+1. *"ça grossit trop vite, il faut qu'on le voit grossir ; il ne grossit pas assez, il faut qu'il
+   touche les limites de l'écran (hauteur), puis qu'il rétrécisse"* → phase de croissance
+   0→22% → **0→40%** de la durée (nettement plus lente à l'œil) ; conteneur `.cercle-mage-scale`
+   56vh → **92vh** (touche quasiment les bords en hauteur une fois à taille pleine). Phases de
+   charge/relâchement décalées en conséquence (40→58%→92%).
+2. *"les runes doivent sortir de l'extrémité du cercle"* — `explosionRunes()` prenait un point de
+   départ fixe au centre (50vw/50vh) pour toutes les runes ; **corrigé** : chaque rune calcule un
+   angle aléatoire, part d'un point sur le bord de l'anneau (`rayonDepart`, ≈ moitié du conteneur)
+   à cet angle, et poursuit dans le prolongement du même rayon vers sa destination — lit comme une
+   éjection radiale depuis le bord, pas un tir depuis le centre.
+3. *"les runes doivent être dans la gamme de couleur (le dégradé) de l'image"* — couleur fixe
+   `#d8c4f5` remplacée par `COULEURS_RUNE` (5 teintes échantillonnées sur le dégradé réel de
+   l'illustration : magenta/violet/bleu-violet/bleu/cyan), une par rune au hasard. Le halo
+   (`filter: drop-shadow`) utilise maintenant `currentColor` au lieu d'une couleur fixe, pour
+   suivre automatiquement la teinte de chaque instance.
+4. *"je veux plus de runes, beaucoup plus"* — 20 → **90** runes éjectées.
+
+**Vérifié en navigateur après chaque round** (animations figées via `Animation.currentTime`,
+comptage DOM) : cercle bien visible en pleine croissance à 900ms (~35% de 2600ms), 90 particules
+`.particule--rune` confirmées dans le DOM, glyphes colorés visibles au bord de l'anneau pendant la
+phase d'éjection (~1900ms) avec des teintes variées cohérentes avec le dégradé. Aucune erreur
+console à chaque étape.
+
+**Statut Mage : validé par l'utilisateur ("parfait").**
+
+## Les 5 transitions sont maintenant toutes retravaillées et validées
+
+Humain (`bb04a04`), Elfe (`85c5524` + `3bf2e1b`), Nain (`3bf2e1b`), Demi-Orc (`7f0d20e`), Mage (à
+committer avec cette mise à jour). Prochaine étape naturelle, si l'utilisateur le confirme : passer
+au point 4 de l'ordre de travail initial (layout de la page équipe), ou revenir sur un point de
+détail resté en suspens plus haut dans ce document (nettoyage CSS mort `--mat-basalte-*`/
+`--mat-bois-*`, etc.) — à re-proposer plutôt qu'à décider seul.
 
 ### Note pour plus tard (pas maintenant) — conversion des transitions en GIF
 
