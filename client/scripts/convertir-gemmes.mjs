@@ -1,13 +1,12 @@
 // Script ponctuel : convertit en WebP les 5 illustrations de gemmes/pierre déjà détourées à la
-// main par l'utilisateur (docs/img/transition/{ruby,saphire,emeraude,ambre,kayou}.png — fond déjà
-// transparent, contrairement à la première passe où le fond était blanc uni). Simple conversion,
-// pas de seuillage alpha ici. Sharp retiré après usage.
+// main par l'utilisateur (docs/img/transition/kayou/{ruby,saphire,emeraude,ambre,kayou}.png — fond
+// déjà transparent). Simple conversion, pas de seuillage alpha ici. Sharp retiré après usage.
 import sharp from "sharp";
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
 
 const RACINE = path.resolve(import.meta.dirname, "..", "..");
-const SRC = path.join(RACINE, "docs/img/transition");
+const SRC = path.join(RACINE, "docs/img/transition/kayou");
 const DEST_DIR = path.join(RACINE, "client/public/img/transition/gemmes");
 
 const fichiers = [

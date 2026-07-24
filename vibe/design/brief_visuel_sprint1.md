@@ -640,8 +640,96 @@ invisible en inspection mais perceptible à l'usage (halos, glows) selon la qual
 l'image source. Si un futur asset montre un artefact similaire, proposer à l'utilisateur de
 détourer lui-même plutôt que d'insister sur l'ajustement des seuils.
 
-#### Demi-Orc, Mage — pas encore retravaillés
+#### Demi-Orc — refonte complète du concept (pas juste un ajustement)
 
-Retour un par un, dans cet ordre, en suivant la même méthode (question ciblée par
-`AskUserQuestion` avant de coder). Rien n'est encore modifié pour ces 3 races au-delà du
-rallongement de durée déjà appliqué.
+Retour utilisateur, beaucoup plus radical que pour les 3 races précédentes : "on comprend rien à ce
+qui se passe" — l'ancienne version (os traversant l'écran d'un bord aléatoire à un autre) ne se
+lisait pas du tout comme le concept voulu ("c'est censé être l'explosion d'un tas d'ossements"),
+et était beaucoup trop lente. Nouveau concept détaillé par l'utilisateur : **une pile d'ossements
+tombe et apparaît au milieu-bas de l'écran, puis explose** en projetant crânes/os/tibias/mains/
+cage thoracique dans tout l'écran (ce qui masque la vue et permet la coupure), **le fond
+s'assombrit au fur et à mesure** que les ossements apparaissent. "Tout est à changer."
+
+**Refonte complète de `construireDemiOrc`** (`transition-race.ts` + `style.css`) :
+- L'ancienne mécanique `pointHorsEcran`/`champOs` (traversée d'un bord aléatoire à un autre bord
+  aléatoire) est **supprimée**, remplacée par `pointAleatoireEcran`/`explosionOs(nombre, origineX,
+  origineY)` : tous les ossements partent d'un **point fixe** (centre-bas, là où la pile atterrit)
+  vers des destinations aléatoires réparties sur **tout l'écran**. Nombre d'ossements : 14 →
+  **100**. Taille en `vw` (couverture proportionnelle à l'écran, même logique que les autres races).
+- **Nouvel élément `.pile-os`** : tombe du haut de l'écran et atterrit au centre-bas avec un petit
+  effet d'écrasement à l'impact, puis se fond rapidement (comme si elle "éclatait") pile au moment
+  où l'explosion prend le relais.
+- **Nouvel élément `.noircissement-os`** : voile radial noir centré sur le point d'origine,
+  assombrit progressivement l'écran en même temps que l'explosion se déploie, pour masquer la
+  coupure. Remplace l'ancien `.brume-impact` (halo de poussière brun, jugé insuffisant), supprimé.
+
+**Bug d'easing découvert et corrigé pendant la vérification** : `.pile-os` utilisait un
+`animation-timing-function: cubic-bezier(0.55, 0, 0.85, 0.35)` appliqué sur l'ensemble de
+l'animation (chute + rebond + fondu) — un bezier custom déforme la correspondance entre les
+pourcentages de keyframes et le temps réel écoulé (constaté : à 55% du temps réel, la pile était
+encore quasiment à sa position de départ au lieu d'être proche de l'atterrissage à 70%). Remplacé
+par `cubic-bezier(0.5, 0, 1, 1)` (accélération de type gravité, monotone) — les pourcentages de
+keyframes correspondent alors bien au temps réel. **Leçon générale** : éviter un bezier custom
+complexe comme `animation-timing-function` global quand l'animation a plusieurs keyframes à des
+pourcentages précis à respecter ; préférer un easing standard/simple et réserver les beziers
+personnalisés aux animations à 2 seules étapes (0%→100%).
+
+**Vraies illustrations reçues et intégrées.** L'utilisateur a réorganisé tous les assets de
+transition en sous-dossiers (`docs/img/transition/elf/`, `kayou/`, `os/` — seul `porte.png` reste
+à la racine) et fourni 6 images déjà détourées à la main dans `docs/img/transition/os/` :
+`crâne.png`, `fémure.png`, `main.png`, `tibia.png`, `torax.png`, `tas_os.png` (l'amas complet pour
+l'élément qui tombe — composition très réussie : crâne posé sur un enchevêtrement dense d'os,
+inspirée de la référence stock montrée plus tôt mais dans notre propre style peint). Alpha vérifié
+propre (0 aux coins, 255 au centre) pour les 6.
+
+- Nouveau script `client/scripts/convertir-os.mjs` (sharp temporaire, aucun seuillage — sources
+  déjà transparentes) → `client/public/img/transition/os/{crane,femur,main,tibia,torax,tas}.webp`
+  (noms de destination volontairement en ASCII, pas d'accents, pour éviter tout souci d'URL).
+  `convertir-gemmes.mjs`/`convertir-feuilles.mjs` mis à jour pour lire depuis les nouveaux
+  sous-dossiers `kayou/`/`elf/` plutôt que la racine.
+- `transition-race.ts` : `OS[]` (SVG) supprimé, remplacé par `OS_IMG` (5 chemins, pour les
+  projectiles) et `TAS_OS_IMG` (1 chemin, pour la pile). `.pile-os` passe de 3 SVG superposés à un
+  simple `<img>` unique.
+
+**Trois rounds d'ajustement timing/mise en scène après retour utilisateur** :
+1. *"les os vont trop vite, l'animation dure trop longtemps, autant d'os sur moins de temps et qui
+   se déplacent moins vite"* → durée totale 2400 → **1900ms** ; easing des os
+   `cubic-bezier(0.15,0.7,0.3,1)` (lancement très franc) → `ease-out` standard (plus posé) ; délai
+   de lancement resserré (0–0.85s → 0–0.5s).
+2. *"mieux mais encore trop rapide, diviser leur vitesse par 2 ; le tas doit être posé sur le bas
+   de l'écran, plus gros que les os individuels puisqu'il en représente tout un tas ; les os
+   doivent sortir du tas seulement après l'impact (il tombe, paf, puis ça explose)"* →
+   - Vitesse des os divisée par 2 : durée individuelle 0.85–1.3s → **1.7–2.6s**.
+   - **Séquencement corrigé** : le délai de lancement des os partait de 0s (donc certains
+     explosaient avant même que la pile ait atterri à ~452ms). Recalé à **0.45–0.95s**, aligné sur
+     l'atterrissage réel de la pile — l'explosion ne démarre visuellement qu'après l'impact.
+   - `.pile-os` : `bottom: 8%` (flottante) → **`bottom: 0`** (posée directement sur le bas de
+     l'écran) ; taille 15vw/max 130px → **24vw/max 210px**. Point d'origine de l'explosion
+     (`origineY`) réaligné de 84 à **96** (vh) pour correspondre à la nouvelle position au ras du
+     bas.
+3. *"tu peux la faire 1,4 fois plus grande encore"* → `.pile-os` 24vw/210px → **33.6vw/294px**
+   (largeur rendue vérifiée : 126px avant/après comparaison ≈ ×1.47, conforme).
+
+**Vérifié en navigateur après chaque round** (animations figées via `Animation.currentTime`,
+mesures `getBoundingClientRect` pour confirmer les positions/tailles réelles plutôt que de se fier
+au ressenti) : pile posée exactement sur le bord bas à l'atterrissage (bottom mesuré à 811.7px sur
+812px de fenêtre), aucun os explosé avant ~450ms, écran presque entièrement noir vers 85% de la
+durée. Aucune erreur console à chaque étape.
+
+**Statut Demi-Orc : dernier ajustement (pile ×1.4) appliqué et vérifié techniquement, en attente
+de confirmation finale de l'utilisateur avant commit.**
+
+#### Mage — pas encore retravaillé
+
+Retour à faire en suivant la même méthode (question ciblée par `AskUserQuestion` avant de coder).
+Rien n'est encore modifié au-delà du rallongement de durée déjà appliqué.
+
+### Note pour plus tard (pas maintenant) — conversion des transitions en GIF
+
+L'utilisateur a signalé une baisse de FPS perceptible en début de chaque transition (calcul de
+nombreuses particules DOM + animations CSS simultanées, son PC "rame un peu"). Idée retenue pour
+**après** que les 5 transitions soient finalisées et validées : convertir chaque transition en
+fichier GIF (ou vidéo courte) plutôt que de la recalculer en CSS/DOM à chaque lecture — réduirait
+drastiquement la charge de calcul au prix de perdre la génération procédurale (positions
+aléatoires à chaque lecture). **Ne pas commencer ce chantier avant d'avoir fini et validé les 5
+transitions** (Mage restant, puis retouches finales) — c'est une optimisation de la toute fin.

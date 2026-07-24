@@ -1,12 +1,12 @@
 // Script ponctuel : convertit en WebP les 3 illustrations de feuilles déjà détourées à la main par
-// l'utilisateur (docs/img/transition/{feuille_orange,feuille_verte,feuille_elfique}.png — fond
-// déjà transparent). Simple conversion, pas de seuillage alpha ici. Sharp retiré après usage.
+// l'utilisateur (docs/img/transition/elf/{feuille_orange,feuille_verte,feuille_elfique}.png —
+// fond déjà transparent). Simple conversion, pas de seuillage alpha ici. Sharp retiré après usage.
 import sharp from "sharp";
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
 
 const RACINE = path.resolve(import.meta.dirname, "..", "..");
-const SRC = path.join(RACINE, "docs/img/transition");
+const SRC = path.join(RACINE, "docs/img/transition/elf");
 const DEST_DIR = path.join(RACINE, "client/public/img/transition/feuilles");
 
 const fichiers = [

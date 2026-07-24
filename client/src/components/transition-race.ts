@@ -4,7 +4,8 @@
  *  - Humain   : double porte de taverne en bois qui s'ouvre sur une lumière ambre
  *  - Elfe     : nuée de feuilles qui balaie l'écran de bas en haut, dérive façon courant d'air
  *  - Nain     : pluie de gemmes qui tombe de haut en bas, chute pesante avec scintillements
- *  - Demi-Orc : ossements projetés depuis plusieurs bords, tournoiement chaotique et heurté
+ *  - Demi-Orc : pile d'ossements qui tombe au centre-bas de l'écran puis explose, projetant des
+ *              os dans tout l'écran pendant que le fond s'assombrit
  *  - Mage     : cercle runique qui se trace puis flashe (matérialisation rituelle en 3 temps)
  *
  * Chaque race construit son propre balisage dans un calque plein écran, animé en CSS pur (voir
@@ -36,13 +37,17 @@ const GEMMES_IMG = [
   "/img/transition/gemmes/pierre.webp",
 ];
 
-// ---------- Demi-Orc : ossements ----------
+// ---------- Demi-Orc : ossements (illustrations réelles, cf. docs/img/transition/os/, détourées
+// à la main par l'utilisateur, converties par client/scripts/convertir-os.mjs) ----------
 
-const OS = [
-  `<path d="M5 9 C3 9 2 11 3.4 12.5 C2 14 3 16 5 16 C5.6 17.8 7.8 18.2 8.7 17 L15.3 17 C16.2 18.2 18.4 17.8 19 16 C21 16 22 14 20.6 12.5 C22 11 21 9 19 9 C18.4 7.2 16.2 6.8 15.3 8 L8.7 8 C7.8 6.8 5.6 7.2 5 9 Z" fill="currentColor"/>`,
-  `<circle cx="12" cy="10" r="7" fill="currentColor"/><circle cx="9" cy="10" r="1.5" fill="#2a1c10"/><circle cx="15" cy="10" r="1.5" fill="#2a1c10"/><path d="M9.5 15 L9.5 18 M12 16 L12 19.5 M14.5 15 L14.5 18" stroke="#2a1c10" stroke-width="1.4" stroke-linecap="round"/>`,
+const OS_IMG = [
+  "/img/transition/os/crane.webp",
+  "/img/transition/os/femur.webp",
+  "/img/transition/os/main.webp",
+  "/img/transition/os/tibia.webp",
+  "/img/transition/os/torax.webp",
 ];
-const COULEURS_OS = ["#d8cdb8", "#c7bba4", "#8a4030"];
+const TAS_OS_IMG = "/img/transition/os/tas.webp";
 
 // ---------- Mage : runes ----------
 
@@ -92,34 +97,28 @@ function champDeParticules(opts: OptionsParticules): string {
   return html;
 }
 
-// ---------- Génération des ossements (traversée d'un bord à un autre, aléatoire) ----------
+// ---------- Génération de l'explosion d'ossements (radiale depuis un point d'origine fixe,
+// façon pile qui explose — pas une simple traversée d'un bord à un autre) ----------
 
-function pointHorsEcran(bord: number): { x: number; y: number } {
-  const long = alea(5, 95);
-  const marge = alea(12, 22);
-  if (bord === 0) return { x: long, y: -marge };
-  if (bord === 1) return { x: 100 + marge, y: long };
-  if (bord === 2) return { x: long, y: 100 + marge };
-  return { x: -marge, y: long };
+function pointAleatoireEcran(): { x: number; y: number } {
+  return { x: alea(-8, 108), y: alea(-15, 108) };
 }
 
-function champOs(nombre: number): string {
+function explosionOs(nombre: number, origineX: number, origineY: number): string {
   let html = "";
   for (let i = 0; i < nombre; i++) {
-    const bordDepart = Math.floor(Math.random() * 4);
-    let bordArrivee = Math.floor(Math.random() * 4);
-    while (bordArrivee === bordDepart) bordArrivee = Math.floor(Math.random() * 4);
-    const depart = pointHorsEcran(bordDepart);
-    const arrivee = pointHorsEcran(bordArrivee);
-    const forme = OS[Math.floor(Math.random() * OS.length)];
-    const couleur = COULEURS_OS[Math.floor(Math.random() * COULEURS_OS.length)];
-    const delai = alea(0, 0.45).toFixed(2);
-    const duree = alea(1.15, 1.6).toFixed(2);
-    const taille = Math.round(alea(20, 36));
-    const tours = `${Math.random() < 0.5 ? "-" : ""}${Math.round(alea(2, 4))}turn`;
+    const dest = pointAleatoireEcran();
+    const src = OS_IMG[Math.floor(Math.random() * OS_IMG.length)];
+    // Le délai démarre après l'atterrissage de la pile (~0.45s, cf. .pile-os / chute-pile) —
+    // les os n'explosent qu'une fois l'impact survenu, pas avant. Durée doublée (vitesse divisée
+    // par 2) par rapport à la première passe, jugée trop rapide.
+    const delai = alea(0.45, 0.95).toFixed(2);
+    const duree = alea(1.7, 2.6).toFixed(2);
+    const taille = alea(2.8, 5.8).toFixed(2);
+    const tours = `${Math.random() < 0.5 ? "-" : ""}${Math.round(alea(2, 5))}turn`;
     html += `
-      <div class="particule particule--os" style="left:${depart.x.toFixed(1)}vw;top:${depart.y.toFixed(1)}vh;--dx:${(arrivee.x - depart.x).toFixed(1)}vw;--dy:${(arrivee.y - depart.y).toFixed(1)}vh;--delai:${delai}s;--duree:${duree}s;--taille:${taille}px">
-        <span class="particule-rotation particule-rotation--hachee" style="--tours:${tours}"><svg viewBox="0 0 24 24" style="color:${couleur}">${forme}</svg></span>
+      <div class="particule particule--os" style="left:${origineX}vw;top:${origineY}vh;--dx:${(dest.x - origineX).toFixed(1)}vw;--dy:${(dest.y - origineY).toFixed(1)}vh;--delai:${delai}s;--duree:${duree}s;--taille:${taille}vw">
+        <span class="particule-rotation particule-rotation--hachee" style="--tours:${tours}"><img src="${src}" alt="" style="width:100%;height:100%;object-fit:contain;display:block;" /></span>
       </div>`;
   }
   return html;
@@ -185,8 +184,15 @@ function construireNain(overlay: HTMLElement): number {
 
 function construireDemiOrc(overlay: HTMLElement): number {
   overlay.classList.add("transition-particules", "transition-demiorc");
-  overlay.innerHTML = `<div class="brume-impact"></div>${champOs(14)}`;
-  return 1800;
+  const origineX = 50;
+  const origineY = 96;
+  const pile = `<div class="pile-os"><img src="${TAS_OS_IMG}" alt="" style="width:100%;height:100%;object-fit:contain;display:block;" /></div>`;
+  overlay.innerHTML = `
+    <div class="noircissement-os"></div>
+    ${pile}
+    ${explosionOs(100, origineX, origineY)}
+  `;
+  return 1900;
 }
 
 function construireMage(overlay: HTMLElement): number {
