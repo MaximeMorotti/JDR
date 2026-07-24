@@ -16,21 +16,25 @@ function alea(min: number, max: number): number {
   return min + Math.random() * (max - min);
 }
 
-// ---------- Elfe : feuilles ----------
+// ---------- Elfe : feuilles (illustrations réelles, cf. docs/img/transition/, détourées par
+// client/scripts/detourer-feuilles.mjs) ----------
 
-const FEUILLES = [
-  `<path d="M12 2 C5 7 4 16 12 22 C20 16 19 7 12 2 Z" fill="currentColor"/><path d="M12 4 V20" stroke="rgba(0,0,0,0.25)" stroke-width="1"/>`,
-  `<path d="M12 3 C7 6 5 13 11 21 C13 18 14 12 17 10 C15 8 13 6 12 3 Z" fill="currentColor"/>`,
+const FEUILLES_IMG = [
+  "/img/transition/feuilles/orange.webp",
+  "/img/transition/feuilles/verte.webp",
+  "/img/transition/feuilles/elfique.webp",
 ];
-const COULEURS_FEUILLE = ["#7c9a5e", "#c9a63f", "#e4d9b8", "#5f8c56"];
 
-// ---------- Nain : gemmes ----------
+// ---------- Nain : gemmes (illustrations réelles, cf. docs/img/transition/, détourées par
+// client/scripts/detourer-gemmes.mjs — amas de cristaux sur roche noire) ----------
 
-const COULEURS_GEMME = ["#b0273a", "#2e5aa8", "#237a4e", "#c9862f", "#8a8a90"];
-
-function gemmeSvg(): string {
-  return `<polygon points="12,2 19,9 12,22 5,9" fill="currentColor"/><polygon points="12,2 19,9 12,9" fill="rgba(255,255,255,0.4)"/>`;
-}
+const GEMMES_IMG = [
+  "/img/transition/gemmes/ruby.webp",
+  "/img/transition/gemmes/saphir.webp",
+  "/img/transition/gemmes/emeraude.webp",
+  "/img/transition/gemmes/ambre.webp",
+  "/img/transition/gemmes/pierre.webp",
+];
 
 // ---------- Demi-Orc : ossements ----------
 
@@ -153,9 +157,8 @@ function construireElfe(overlay: HTMLElement): number {
     tailleMax: 6.8,
     tailleUnite: "vw",
     icone: () => {
-      const forme = FEUILLES[Math.floor(Math.random() * FEUILLES.length)];
-      const couleur = COULEURS_FEUILLE[Math.floor(Math.random() * COULEURS_FEUILLE.length)];
-      return `<svg viewBox="0 0 24 24" style="color:${couleur}">${forme}</svg>`;
+      const src = FEUILLES_IMG[Math.floor(Math.random() * FEUILLES_IMG.length)];
+      return `<img src="${src}" alt="" style="width:100%;height:100%;object-fit:contain;display:block;" />`;
     },
   });
   return 2350;
@@ -164,14 +167,17 @@ function construireElfe(overlay: HTMLElement): number {
 function construireNain(overlay: HTMLElement): number {
   overlay.classList.add("transition-particules", "transition-nain");
   overlay.innerHTML = champDeParticules({
-    nombre: 18,
+    nombre: 110,
     classeParticule: "particule particule--gemme",
     dureeBase: 1.4,
     dureeVariation: 0.65,
-    delaiMax: 0.55,
+    delaiMax: 0.7,
+    tailleMin: 3.4,
+    tailleMax: 7.2,
+    tailleUnite: "vw",
     icone: () => {
-      const couleur = COULEURS_GEMME[Math.floor(Math.random() * COULEURS_GEMME.length)];
-      return `<svg viewBox="0 0 24 24" style="color:${couleur}">${gemmeSvg()}</svg>`;
+      const src = GEMMES_IMG[Math.floor(Math.random() * GEMMES_IMG.length)];
+      return `<img src="${src}" alt="" style="width:100%;height:100%;object-fit:contain;display:block;" />`;
     },
   });
   return 2050;

@@ -569,19 +569,78 @@ Corrections appliquées :
   de capture d'écran instable à 900px+ de large durant cette session — cf. limite déjà notée pour
   Demi-Orc/Mage plus haut) ; fonctionnellement vérifié en DOM (130 éléments présents, positions
   réparties `-4vw` à `100vw`) et visuellement correct sur un viewport mobile étroit (375px).
-  **Reste à confirmer en conditions réelles par l'utilisateur** avant de considérer l'étape close.
 
-**Prompts d'image fournis à l'utilisateur** (même style que la porte — vue plate de face, fond
-blanc, semi-réaliste dark fantasy), pour 3 feuilles distinctes réutilisables aléatoirement :
+**Statut Elfe : validé par l'utilisateur ("ça me suffit"), commité** (`85c5524`). Les feuilles
+restent en SVG dessinées à la main pour l'instant (prompts d'image fournis mais pas encore
+générés par l'utilisateur pour cette race — contrairement au Nain, voir ci-dessous) :
 1. Feuille de chêne dorée/orangée (5 lobes)
 2. Feuille de bouleau pâle vert sauge (ovale dentelée)
 3. Feuille de lierre elfique vert forêt à bord doré (allongée pointue)
 
-Une fois les images reçues : même traitement que `detourer-porte.mjs` (seuillage alpha blanc→
-transparent), export WebP, remplacement des SVG dessinés à la main dans `FEUILLES`/
-`COULEURS_FEUILLE` (`transition-race.ts`) par un tableau d'images.
+Si ces images arrivent plus tard : même traitement que `detourer-porte.mjs`/`detourer-gemmes.mjs`
+(seuillage alpha blanc→transparent), export WebP, remplacement des SVG dans `FEUILLES`/
+`COULEURS_FEUILLE` (`transition-race.ts`) par un tableau d'images (voir Nain ci-dessous pour un
+exemple concret de ce remplacement déjà fait).
 
-#### Nain, Demi-Orc, Mage — pas encore retravaillés
+#### Nain — retravaillé, vraies illustrations intégrées
+
+Retour utilisateur : (1) les gemmes SVG (losanges plats) ne sont pas réalistes — demande de
+prompts pour de vraies illustrations, façon "cristaux sortant d'une pierre noire", (2) pas assez
+grosses/nombreuses (même retour que l'Elfe), (3) confirmation que le sens de chute (haut→bas) est
+correct — aucun bug d'ancrage constaté ici (contrairement à l'Elfe).
+
+- **Densité** : 18 → 110 gemmes, taille en `vw` (3.4–6.8vw, même logique que l'Elfe) au lieu de px
+  fixe. Vérifié visuellement (bonne couverture progressive, aucune erreur console).
+- **Vraies illustrations reçues et intégrées** : l'utilisateur a déposé 5 images dans
+  `docs/img/transition/` — `ruby.png`, `saphire.png`, `emeraude.png`, `ambre.png`, `kayou.png`
+  (pierre brute sans cristal, pour varier). Chacune : un amas de cristaux (ou une simple pierre
+  pour `kayou`) sur un bloc de roche noire, vue de face.
+  `transition-race.ts` : `COULEURS_GEMME`/`gemmeSvg()` supprimés, remplacés par un tableau
+  `GEMMES_IMG` de 5 chemins, l'icône de chaque particule devient un `<img>` plutôt qu'un SVG coloré
+  par `currentColor`. CSS (`.particule-rotation svg` → `.particule-rotation svg, .particule-rotation
+  img`, idem pour `.particule--gemme ... svg` → `+ img`) pour que l'ombre portée et le scintillement
+  s'appliquent aussi aux images.
+- **Détourage : premier essai automatique raté, corrigé par un détourage manuel de
+  l'utilisateur.** Premier traitement via un script one-off à seuillage alpha (même technique que
+  `detourer-cadres.mjs`/`detourer-porte.mjs`) : fonctionnait sur le papier (alpha=0 vérifié aux
+  coins) mais laissait un résidu visible à l'usage — un halo carré flou autour de chaque gemme,
+  surtout perceptible pendant le flash de scintillement (`drop-shadow` élargissant le moindre pixel
+  semi-transparent résiduel en un carré net). L'utilisateur a **détouré les 5 images lui-même** et
+  les a redéposées aux mêmes chemins — alpha réel et propre vérifié (0 aux 4 coins, 255 au centre,
+  sur les 8 images gemmes+feuilles). Le script one-off à seuillage (`detourer-gemmes.mjs`) est
+  **supprimé**, remplacé par `client/scripts/convertir-gemmes.mjs` : simple redimensionnement +
+  export WebP, aucun traitement de transparence puisque les sources sont déjà propres. Revérifié
+  en navigateur après ce correctif : halos nets, plus aucun artefact carré.
+- **Scintillement adouci en passant** (indépendamment du bug de détourage) : le flash blanc à
+  mi-chute (`drop-shadow`) réduit de 10px/0.9 opacité à 6px/0.65, plus discret et cohérent avec des
+  illustrations déjà détaillées (contrairement à l'ancien losange plat qui avait besoin d'un flash
+  marqué pour suggérer un reflet).
+
+**Statut Nain : validé, prêt à committer.**
+
+#### Elfe — vraies illustrations intégrées (complète le round précédent)
+
+Après le premier commit Elfe (`85c5524`, feuilles encore en SVG), l'utilisateur a généré et fourni
+3 images de feuilles dans `docs/img/transition/` : `feuille_orange.png` (chêne doré/orangé),
+`feuille_verte.png` (bouleau pâle vert sauge), `feuille_elfique.png` (lierre elfique vert forêt à
+bord doré — celle-ci en particulier très réussie, avec vrilles). Même traitement que les gemmes :
+détourage manuel par l'utilisateur (pas de script de seuillage), conversion simple via nouveau
+`client/scripts/convertir-feuilles.mjs` → `client/public/img/transition/feuilles/
+{orange,verte,elfique}.webp`. `transition-race.ts` : `FEUILLES`/`COULEURS_FEUILLE` (SVG + couleurs)
+supprimés, remplacés par `FEUILLES_IMG` (3 chemins), même changement `<svg>` → `<img>` que pour les
+gemmes. Vérifié en navigateur (viewport mobile 375px, 130 feuilles chargées) : rendu net, aucune
+erreur console.
+
+**Statut Elfe (round 2, vraies images) : validé, prêt à committer** — vient compléter le commit
+`85c5524` (qui portait sur le bug d'ancrage + la densité, feuilles encore en SVG à ce moment-là).
+
+**Leçon retenue pour la suite (Demi-Orc, Mage)** : le seuillage alpha automatique (blanc→
+transparent) qui fonctionnait bien pour la porte et les cadres de race peut laisser un résidu
+invisible en inspection mais perceptible à l'usage (halos, glows) selon la qualité du fond de
+l'image source. Si un futur asset montre un artefact similaire, proposer à l'utilisateur de
+détourer lui-même plutôt que d'insister sur l'ajustement des seuils.
+
+#### Demi-Orc, Mage — pas encore retravaillés
 
 Retour un par un, dans cet ordre, en suivant la même méthode (question ciblée par
 `AskUserQuestion` avant de coder). Rien n'est encore modifié pour ces 3 races au-delà du
