@@ -101,8 +101,8 @@ function champOs(nombre: number): string {
     const arrivee = pointHorsEcran(bordArrivee);
     const forme = OS[Math.floor(Math.random() * OS.length)];
     const couleur = COULEURS_OS[Math.floor(Math.random() * COULEURS_OS.length)];
-    const delai = alea(0, 0.25).toFixed(2);
-    const duree = alea(0.65, 0.95).toFixed(2);
+    const delai = alea(0, 0.45).toFixed(2);
+    const duree = alea(1.15, 1.6).toFixed(2);
     const taille = Math.round(alea(20, 36));
     const tours = `${Math.random() < 0.5 ? "-" : ""}${Math.round(alea(2, 4))}turn`;
     html += `
@@ -120,13 +120,17 @@ function construireHumain(overlay: HTMLElement): number {
   const poussieres = Array.from({ length: 3 })
     .map(() => `<span class="poussiere-taverne" style="--x:${alea(35, 65).toFixed(1)}%;--delai:${alea(0.2, 0.5).toFixed(2)}s"></span>`)
     .join("");
+  const battant = (cote: "gauche" | "droit") => `
+    <div class="battant battant--${cote}">
+      <img class="image-porte" src="/img/transition/porte.webp" alt="" />
+    </div>`;
   overlay.innerHTML = `
     <div class="lumiere-taverne"></div>
-    <div class="battant battant--gauche"></div>
-    <div class="battant battant--droit"></div>
+    ${battant("gauche")}
+    ${battant("droit")}
     ${poussieres}
   `;
-  return 1100;
+  return 2000;
 }
 
 function construireElfe(overlay: HTMLElement): number {
@@ -134,16 +138,16 @@ function construireElfe(overlay: HTMLElement): number {
   overlay.innerHTML = champDeParticules({
     nombre: 22,
     classeParticule: "particule particule--feuille",
-    dureeBase: 1.0,
-    dureeVariation: 0.5,
-    delaiMax: 0.35,
+    dureeBase: 1.8,
+    dureeVariation: 0.9,
+    delaiMax: 0.6,
     icone: () => {
       const forme = FEUILLES[Math.floor(Math.random() * FEUILLES.length)];
       const couleur = COULEURS_FEUILLE[Math.floor(Math.random() * COULEURS_FEUILLE.length)];
       return `<svg viewBox="0 0 24 24" style="color:${couleur}">${forme}</svg>`;
     },
   });
-  return 1300;
+  return 2350;
 }
 
 function construireNain(overlay: HTMLElement): number {
@@ -151,21 +155,21 @@ function construireNain(overlay: HTMLElement): number {
   overlay.innerHTML = champDeParticules({
     nombre: 18,
     classeParticule: "particule particule--gemme",
-    dureeBase: 0.8,
-    dureeVariation: 0.35,
-    delaiMax: 0.3,
+    dureeBase: 1.4,
+    dureeVariation: 0.65,
+    delaiMax: 0.55,
     icone: () => {
       const couleur = COULEURS_GEMME[Math.floor(Math.random() * COULEURS_GEMME.length)];
       return `<svg viewBox="0 0 24 24" style="color:${couleur}">${gemmeSvg()}</svg>`;
     },
   });
-  return 1150;
+  return 2050;
 }
 
 function construireDemiOrc(overlay: HTMLElement): number {
   overlay.classList.add("transition-particules", "transition-demiorc");
   overlay.innerHTML = `<div class="brume-impact"></div>${champOs(14)}`;
-  return 1000;
+  return 1800;
 }
 
 function construireMage(overlay: HTMLElement): number {
@@ -175,7 +179,7 @@ function construireMage(overlay: HTMLElement): number {
     .map((_, i) => {
       const angle = (360 / nombre) * i;
       const rayon = alea(24, 30).toFixed(1);
-      const delai = (0.55 + (i / nombre) * 0.5).toFixed(2);
+      const delai = (1.0 + (i / nombre) * 0.9).toFixed(2);
       const forme = RUNES[i % RUNES.length];
       return `
         <span class="rune-mage" style="--angle:${angle}deg;--rayon:${rayon}vh;--delai:${delai}s">
@@ -189,7 +193,7 @@ function construireMage(overlay: HTMLElement): number {
     ${runes}
     <div class="flash-mage"></div>
   `;
-  return 1450;
+  return 2600;
 }
 
 const CONSTRUCTEURS: Record<string, (overlay: HTMLElement) => number> = {
@@ -200,7 +204,14 @@ const CONSTRUCTEURS: Record<string, (overlay: HTMLElement) => number> = {
   mage: construireMage,
 };
 
-export function jouerTransitionRace(raceId: string): Promise<void> {
+/**
+ * Joue la transition plein écran, puis résout la Promise. `auMilieu` (ex: la navigation vers la
+ * page suivante) est déclenché juste avant le début du fondu de sortie du calque (85% de la durée
+ * totale, cf. `fondu-overlay-transition`), pendant qu'il est encore opaque — pour que la
+ * disparition du calque révèle la nouvelle page plutôt que l'ancienne (sinon on voit un flash de
+ * la page de départ juste avant la coupure, la transition perd tout son sens).
+ */
+export function jouerTransitionRace(raceId: string, auMilieu?: () => void): Promise<void> {
   const construire = CONSTRUCTEURS[raceId] ?? construireHumain;
   return new Promise((resolve) => {
     const overlay = document.createElement("div");
@@ -208,6 +219,8 @@ export function jouerTransitionRace(raceId: string): Promise<void> {
     const duree = construire(overlay);
     overlay.style.setProperty("--duree-totale", `${duree}ms`);
     document.body.appendChild(overlay);
+    const debutFonduSortie = Math.round(duree * 0.85);
+    window.setTimeout(() => auMilieu?.(), debutFonduSortie);
     window.setTimeout(() => {
       overlay.remove();
       resolve();

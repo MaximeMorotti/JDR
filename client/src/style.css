@@ -711,47 +711,52 @@ button {
   opacity: 0;
   animation: lumiere-taverne-anim var(--duree-totale) ease-out both;
 }
+/* Éclat calé sur le battement de la porte : monte pendant le pivot, redescend dès qu'elle est
+   ouverte au lieu de rester allumé jusqu'à la fin (durée perçue divisée par ~2). */
 @keyframes lumiere-taverne-anim {
-  0%, 18% { opacity: 0; }
-  45% { opacity: 1; }
-  100% { opacity: 0.85; }
+  0%, 15% { opacity: 0; }
+  40% { opacity: 1; }
+  70% { opacity: 0.35; }
+  100% { opacity: 0; }
 }
 
+/* Porte de taverne — vraie illustration (docs/img/transition/porte.png, détourée par
+   client/scripts/detourer-porte.mjs), un seul panneau réutilisé en miroir pour les deux battants
+   plutôt qu'une texture CSS (jugée pas assez réaliste). */
 .battant {
   position: absolute;
   top: 0;
   bottom: 0;
   width: 50%;
-  background:
-    repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.15) 0 3px, transparent 3px 26px),
-    linear-gradient(180deg, #4a3018, #2c1a0c);
-  box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.6);
+  overflow: hidden;
+  box-shadow:
+    inset 0 0 45px rgba(0, 0, 0, 0.5),
+    inset 0 0 0 3px rgba(20, 12, 6, 0.8);
 }
 .battant--gauche {
   left: 0;
   transform-origin: left center;
-  border-right: 2px solid #1c1006;
   animation: ouverture-gauche var(--duree-totale) cubic-bezier(0.4, 0, 0.2, 1.4) both;
 }
 .battant--droit {
   right: 0;
   transform-origin: right center;
-  border-left: 2px solid #1c1006;
   animation: ouverture-droite var(--duree-totale) cubic-bezier(0.4, 0, 0.2, 1.4) both;
 }
-.battant--gauche::after,
-.battant--droit::after {
-  content: "";
+
+.image-porte {
   position: absolute;
-  top: 42%;
-  width: 8px;
-  height: 18%;
-  background: linear-gradient(180deg, #8a8a90, #3a3a3f);
-  border-radius: 3px;
-  box-shadow: 0 0 4px rgba(0, 0, 0, 0.6);
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  display: block;
 }
-.battant--gauche::after { right: 6px; }
-.battant--droit::after { left: 6px; }
+/* Panneau droit en miroir du gauche : évite de devoir fournir 2 illustrations distinctes. */
+.battant--droit .image-porte {
+  transform: scaleX(-1);
+}
 
 @keyframes ouverture-gauche {
   0%, 8% { transform: rotateY(0deg); }
@@ -772,7 +777,7 @@ button {
   background: rgba(255, 214, 150, 0.85);
   filter: blur(0.5px);
   opacity: 0;
-  animation: poussiere-monte 1s ease-out var(--delai) both;
+  animation: poussiere-monte 1.8s ease-out var(--delai) both;
 }
 @keyframes poussiere-monte {
   0% { transform: translateY(0); opacity: 0; }
@@ -864,7 +869,7 @@ button {
   inset: 0;
   background: radial-gradient(circle at 50% 55%, rgba(90, 70, 50, 0.55), transparent 60%);
   opacity: 0;
-  animation: brume-pulse 1s ease-out both;
+  animation: brume-pulse 1.8s ease-out both;
 }
 @keyframes brume-pulse {
   0%, 30% { opacity: 0; }
@@ -921,7 +926,7 @@ button {
   margin: -15px 0 0 -15px;
   color: #d8c4f5;
   opacity: 0;
-  animation: apparition-rune 0.5s ease-out var(--delai) both;
+  animation: apparition-rune 0.9s ease-out var(--delai) both;
 }
 .rune-mage svg { width: 100%; height: 100%; filter: drop-shadow(0 0 6px rgba(216, 196, 245, 0.9)); }
 @keyframes apparition-rune {

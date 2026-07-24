@@ -472,14 +472,84 @@ duplication de durée entre le `setTimeout` JS et l'`animation-duration` CSS).
 **Vérification technique effectuée** : `npx tsc --noEmit` propre, aucune erreur console sur les 5
 races testées en navigateur (création de personnage réelle via le flux complet, à chaque fois
 suivie d'une navigation correcte vers `/equipe`), comptages DOM corrects (18 `.particule--gemme`,
-10 `.rune-mage`, 14 os). **Limite rencontrée** : l'outil de capture d'écran du navigateur intégré
-est devenu indisponible en cours de session (timeout persistant, y compris sur un nouvel onglet et
-après rechargement — problème d'infrastructure de l'outil, pas du code : le rendu de page restait
-fonctionnel via `get_page_text`/`javascript_exec` pendant ce temps). Seule la transition Demi-Orc a
-pu être confirmée par une capture visuelle réelle avant que l'outil ne se bloque ; Humain/Elfe/
-Nain/Mage n'ont été vérifiées que par les moyens ci-dessus (pas de captures d'écran). **Le test
-utilisateur en conditions réelles reste donc la validation de référence pour cette étape** avant de
-passer au layout de la page équipe.
+10 `.rune-mage`, 14 os).
 
 **Règle de méthode donnée par l'utilisateur** : avancer étape par étape, ne pas tout faire d'un
 coup, committer entre les étapes, tester avant de continuer sur la suivante.
+
+### v0 jugée ratée — retravail en cours, race par race, avec questions ciblées
+
+Après le feu vert initial, l'utilisateur a vu le rendu réel et l'a jugé "horrible"/"pas du tout"
+satisfaisant — feu vert donné sur la **description**, pas sur le **rendu visuel** réel. Nouvelle
+méthode adoptée pour la suite : (1) rallonger toutes les durées pour bien voir chaque animation
+se jouer, (2) revoir les 5 transitions **une par une**, question ciblée à chaque fois (via
+`AskUserQuestion`) plutôt que de deviner, (3) committer un "v0 fixup" une fois une race
+retravaillée, avant de passer à la suivante.
+
+**Durées rallongées (~×1.8, pour bien observer chaque animation)** : Humain 1100→2000ms, Elfe
+1300→2350ms, Nain 1150→2050ms, Demi-Orc 1000→1800ms, Mage 1450→2600ms. Les durées/délais internes
+des particules (feuilles, gemmes, os, runes) et les animations à durée fixe (poussière, brume,
+apparition de rune) ont été rescalées dans les mêmes proportions pour garder un mouvement cohérent
+plutôt que de simplement rallonger le temps mort en fin de séquence.
+
+**Bug de fond corrigé sur toutes les transitions, découvert en creusant Humain** :
+`jouerTransitionRace` attendait la fin complète du calque (fondu de sortie inclus) avant
+d'appeler `naviguer(...)`, ce qui laissait apparaître un flash de l'ancienne page (celle de
+création) juste avant la coupure vers la nouvelle — la transition perdait tout son sens.
+**Fix** : `jouerTransitionRace(raceId, auMilieu?)` accepte maintenant un callback déclenché à 85%
+de la durée totale (juste avant le début du fondu de sortie CSS), pendant que le calque est encore
+opaque — le fondu révèle donc la nouvelle page plutôt que l'ancienne. `creation-personnage.ts`
+passe `() => naviguer("/equipe")` comme callback au lieu d'appeler `naviguer` après le `await`.
+Vérifié par mesure réelle (`hashchange` déclenché à ~1716ms sur une durée Humain de 2000ms, soit
+85.8% — conforme).
+
+#### Humain — 2 rounds de retouches, validé
+
+**Round 1** (retour sur la v0 générique) :
+1. Timing du battement de porte jugé bon, **conservé tel quel**.
+2. Lumière ambrée derrière la porte **restait allumée bien trop longtemps** (plafonnait à opacité
+   0.85 de 45% à 100% de la durée) → nouvelle courbe resserrée, calée sur le battement :
+   monte jusqu'à 40%, redescend dès 70%, éteinte à 100% (`lumiere-taverne-anim`).
+3. **Esthétique de la porte jugée hors-sujet** (pas assez dark fantasy) → première passe : refonte
+   CSS pure (bandes de fer plus épaisses avec bouts en pointe façon losange via `clip-path`,
+   rivets par `radial-gradient` répété, poignée en anneau à 2 couches, bois éclairci).
+
+**Round 2** (après un sprite de référence fourni par l'utilisateur, jugé "de très mauvaise
+qualité" mais utile comme direction) : bandes encore plus épaisses/sombres à bouts pointus, rivets
+plus marqués, anneau creux à 2 couches, bois éclairci par rapport au sprite. **Toujours jugé pas
+assez réaliste** (texture bois/métal CSS plafonne en crédibilité) → même conclusion que pour les
+cadres de race : **abandon du CSS pur au profit d'une vraie illustration**.
+
+**Round 3 — vraie image (résolu)** : l'utilisateur a généré une illustration via un prompt fourni
+(voir ci-dessous) et l'a déposée dans `docs/img/transition/porte.png` — un seul panneau de porte
+vu de face à plat (pas de perspective, pour laisser la rotation 3D au CSS), fond blanc uni, style
+peint semi-réaliste. Traitement : nouveau script one-off `client/scripts/detourer-porte.mjs`
+(sharp réinstallé puis désinstallé après usage, même seuillage alpha 222–250 que
+`detourer-cadres.mjs`) → export `client/public/img/transition/porte.webp` (900×1342, vérifié
+transparent aux coins, opaque au centre). Le même panneau est réutilisé **en miroir**
+(`transform: scaleX(-1)` sur `.battant--droit .image-porte`) pour l'autre battant plutôt que de
+générer 2 illustrations distinctes. CSS des battants simplifié (l'image porte déjà tous les
+détails : planches, bandes, rivets, anneau) — anciennes règles `.sangle-fer`/`.poignee-anneau`
+supprimées.
+
+**Prompt d'image utilisé** (pour référence future si une autre race a besoin du même traitement) :
+> Single medieval tavern door panel, weathered oak wood planks with visible wood grain, reinforced
+> with two thick horizontal wrought-iron bands with round rivets, a circular iron ring handle
+> mounted on a round backplate at the center, medium warm brown wood tone (not too dark, not
+> black), semi-realistic painted dark fantasy game-art style, flat frontal orthographic view, no
+> perspective, no angle, straight-on, soft even lighting with no strong directional shadow, plain
+> solid white background, high detail texture, weathered and slightly worn, RPG game asset,
+> portrait orientation --ar 2:3
+
+**Retouche finale** : du noir apparaissait autour de l'image (marges `top/bottom:14px`,
+`left/right:5px` de l'ancienne mise en page CSS) → marges retirées, `.battant` occupe maintenant
+tout l'écran (`top:0;bottom:0;width:50%`), `object-fit: cover` évite toute déformation visible.
+
+**Statut Humain : validé par l'utilisateur**, prêt pour le commit "fixup transition Humain" avant
+de passer à l'Elfe.
+
+#### Elfe, Nain, Demi-Orc, Mage — pas encore retravaillés
+
+Retour un par un, dans cet ordre, en suivant la même méthode (question ciblée par
+`AskUserQuestion` avant de coder). Rien n'est encore modifié pour ces 4 races au-delà du
+rallongement de durée déjà appliqué.

@@ -226,8 +226,7 @@ export async function renderCreationPersonnage(app: HTMLElement) {
         raceId: raceSelectionnee.id,
         classeId: classeSelectionnee.id,
       });
-      await jouerTransitionRace(raceSelectionnee.id);
-      naviguer("/equipe");
+      await jouerTransitionRace(raceSelectionnee.id, () => naviguer("/equipe"));
     } catch (e) {
       zoneErreur.innerHTML = `<div class="erreur">${(e as Error).message}</div>`;
       btnSuivant.disabled = false;
