@@ -44,10 +44,10 @@ Ces fichiers sont la source de vérité pour toutes les règles de jeu. Toujours
 
 ## Roadmap (sprints)
 
-Voir `docs/Roadmap_Sprints.md` pour le détail complet. État actuel :
+Voir `Roadmap_Sprints.md` (racine du dépôt) pour le détail complet. État actuel :
 
 - [x] Sprint 0 — Fondations techniques (fait)
-- [ ] **Sprint 1 — Création de personnage (EN COURS)** : équipe de 1 à 4, budget partagé, choix du compagnon en fin de flux
+- [x] **Sprint 1 — Création de personnage (TERMINÉ)** : équipe de 1 à 4, budget partagé, choix du compagnon en fin de flux, boutique/mannequin, pages équipe/compagnon habillées visuellement
 - [ ] Sprint 2 — Déplacement sur carte de combat (grille octogonale, obstacles)
 - [ ] Sprint 3 — Combat contre des mobs
 - [ ] Sprint 4 — Équipement, craft, compagnons (mécaniques de jeu, pas juste catalogue)
@@ -77,5 +77,6 @@ Voir `docs/Roadmap_Sprints.md` pour le détail complet. État actuel :
 | `docs/img/img_compagnon/final/` contient 10 illustrations nommées par nom de compagnon individuel (Buck, Hyubert, Nono...), aucune source ne les relie aux 10 espèces du Codex des Compagnons | Correspondance déduite **visuellement** (inspection des illustrations) dans `client/scripts/optimiser-images.mjs` — ex: Buck→Élan (silhouette d'orignal), Hyubert→Fée (ailes), Nono→Chihuahua (petit chien). À confirmer si un doute apparaît ; ne pas la considérer comme une donnée sourcée |
 | Codex des Compagnons : les 5 chiens et la Mule sont documentés comme "disponibles pour toute équipe comportant un Guerrier, un Voleur ou un Barde" | **Décision explicite de l'utilisateur** (retour de test) : ce sont des compagnons universels, sans prérequis de classe. `classesLiees` vide pour ces 6 dans le seed |
 | Codex des Classes : "le Mage" est modélisé comme **1 classe unique divisée en 3 écoles** (Élémentaire/Noire/Blanche), l'école étant choisie à la création puis une spécialisation au sein de cette école — mais la première implémentation Sprint 1 avait confondu ce choix d'école (structurant, fait à la création) avec le système de spécialisation différée (arbre de compétences à débloquer en progressant), l'affichant en simple aperçu informatif au même titre que les vraies spécialisations | **Décision explicite de l'utilisateur** : implémenté comme **3 classes indépendantes et exclusives à la race Mage** (`mage-elementaire`, `mage-noir`, `mage-blanc` dans `ClasseRef`), chacune avec ses ~4 spécialisations propres (`SpecialisationRef.classeId`, champ `ecole` supprimé du schéma — devenu redondant). Chaque classe a ainsi uniformément 4-5 spécialisations, comme les 6 autres classes, et l'école redevient un vrai choix de classe fait à la création plutôt qu'un sous-groupe de spécialisations différées |
+| Fiche Technique §5 et Codex de l'Équipement modélisent "Bras Gauche"/"Bras Droit" comme deux emplacements d'armure distincts (brassards) — redondant puisque le Codex lui-même les décrit "identiques, symétriques" | **Décision explicite de l'utilisateur** (retour sur la refonte de la page boutique/mannequin) : fusionnés en **un seul emplacement `BRAS`** — un brassard s'achète et s'équipe pour les deux bras à la fois (prix et défense cumulés : ex. Brassard en cuir 3po/+1 chacun → "Brassards en cuir (paire)" 6po/+2). `EMPLACEMENTS` dans `personnage.routes.ts` et le seed (`brassard-cuir`, `brassard-peau-ecailleuse`) mis à jour en conséquence. **`MAIN_DROITE`/`MAIN_GAUCHE` restent séparés, volontairement exclus de cette fusion** (l'utilisateur l'a explicitement précisé après une première question de clarification) : ce sont l'arme principale et l'arme secondaire/bouclier, deux objets fonctionnellement différents — pas une paire symétrique comme les brassards — les fusionner empêcherait d'équiper une arme ET un bouclier simultanément et casserait le stuff verrouillé du Mage (bâton + grimoire, un par main) |
 
 *Compléter ce tableau au fil des sprints plutôt que de modifier les Codex sources à chaud.*

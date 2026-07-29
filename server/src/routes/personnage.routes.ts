@@ -11,12 +11,20 @@ import {
 
 export const personnageRouter = Router({ mergeParams: true });
 
-/** Emplacements d'équipement valides (cf. fiche_technique_joueur_personnage.md §5). */
+/**
+ * Emplacements d'équipement valides (cf. fiche_technique_joueur_personnage.md §5).
+ * `BRAS` : fusion de "Bras Gauche"/"Bras Droit" (Codex) en un seul emplacement — un brassard
+ * s'achète et s'équipe pour les deux bras à la fois (décision explicite de l'utilisateur, voir
+ * écart documenté dans CLAUDE.md). `MAIN_DROITE`/`MAIN_GAUCHE` restent INCHANGÉS et séparés : ce
+ * sont l'arme principale et l'arme secondaire/bouclier, deux objets fonctionnellement différents
+ * (pas une paire symétrique comme les brassards) — les fusionner empêcherait d'équiper une arme ET
+ * un bouclier en même temps, et casserait le stuff verrouillé du Mage (bâton en MAIN_DROITE,
+ * grimoire en MAIN_GAUCHE, simultanément).
+ */
 const EMPLACEMENTS = [
   "TETE",
   "TORSE",
-  "BRAS_GAUCHE",
-  "BRAS_DROIT",
+  "BRAS",
   "BAS",
   "PIED",
   "MAIN_DROITE",

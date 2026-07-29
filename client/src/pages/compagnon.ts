@@ -1,6 +1,19 @@
 import { api } from "../api";
+import { genererRadarSVG } from "../components/radar-stats";
 import { naviguer } from "../router";
 import { state } from "../state";
+
+/**
+ * Radar de compagnon : 4 axes seulement (pas les 8 des personnages) — l'Intelligence est absente
+ * de 8 des 10 compagnons du Codex, l'inclure uniformément aurait affiché un "0" trompeur pour la
+ * plupart d'entre eux. PV/Force/Dex/Vitalité sont communs à tous.
+ */
+const AXES_COMPAGNON: [cle: string, label: string][] = [
+  ["pv", "PV"],
+  ["force", "For"],
+  ["dexterite", "Dex"],
+  ["vitalite", "Vit"],
+];
 
 export async function renderCompagnon(app: HTMLElement) {
   const equipeId = state.equipeId;
@@ -36,17 +49,13 @@ export async function renderCompagnon(app: HTMLElement) {
           : c.classesLiees.length > 0
             ? `Nécessite : ${c.classesLiees.map((cl) => cl.classe.nom).join(" ou ")}`
             : "";
+        const echelle = Math.max(c.pv, c.force, c.dexterite, c.vitalite, 10);
         return `
         <div class="carte-compagnon ${!c.accessible ? "inaccessible" : ""} ${estChoisi ? "choisi" : ""}">
           <img class="portrait-compagnon" src="/img/compagnons/${c.id}.webp" alt="Portrait ${c.nom}" loading="lazy" />
           <h3>${c.nom}</h3>
           <div style="font-size:0.85rem;color:var(--text-dim)">${c.role}</div>
-          <div class="stats-grille" style="margin-top:10px">
-            <div class="stat"><span class="valeur">${c.pv}</span><span class="label">PV</span></div>
-            <div class="stat"><span class="valeur">${c.force}</span><span class="label">Force</span></div>
-            <div class="stat"><span class="valeur">${c.dexterite}</span><span class="label">Dex.</span></div>
-            <div class="stat"><span class="valeur">${c.vitalite}</span><span class="label">Vitalité</span></div>
-          </div>
+          <div class="radar-compagnon">${genererRadarSVG({ pv: c.pv, force: c.force, dexterite: c.dexterite, vitalite: c.vitalite }, AXES_COMPAGNON, echelle)}</div>
           <p style="font-size:0.8rem;margin-top:8px">${c.capaciteTransport}</p>
           ${prerequis ? `<span class="badge ${c.accessible ? "badge--attention" : "badge--bloque"}">${prerequis}</span>` : ""}
           <div style="margin-top:10px">

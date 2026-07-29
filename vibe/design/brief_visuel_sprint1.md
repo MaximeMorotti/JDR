@@ -780,11 +780,122 @@ console à chaque étape.
 
 ## Les 5 transitions sont maintenant toutes retravaillées et validées
 
-Humain (`bb04a04`), Elfe (`85c5524` + `3bf2e1b`), Nain (`3bf2e1b`), Demi-Orc (`7f0d20e`), Mage (à
-committer avec cette mise à jour). Prochaine étape naturelle, si l'utilisateur le confirme : passer
-au point 4 de l'ordre de travail initial (layout de la page équipe), ou revenir sur un point de
-détail resté en suspens plus haut dans ce document (nettoyage CSS mort `--mat-basalte-*`/
-`--mat-bois-*`, etc.) — à re-proposer plutôt qu'à décider seul.
+Humain (`bb04a04`), Elfe (`85c5524` + `3bf2e1b`), Nain (`3bf2e1b`), Demi-Orc (`7f0d20e`), Mage
+(`b03ceeb`).
+
+## Étape 3 — Layout de la page équipe (en cours)
+
+Après les 5 transitions, retour à l'étape 3 de l'ordre de travail initial. L'utilisateur a demandé
+de se souvenir du croquis papier donné en tout début de session (photo, prise **tournée 90° — à
+lire en la faisant pivoter dans le sens anti-horaire**). Une fois correctement orienté : un bloc
+"Inventaire" (grille/tableau) sur la **droite** de la page (pas en haut comme la photo brute le
+suggérait avant rotation), les personnages ("Perso 1", "Perso 2"...) en capsules avec "+", et un
+bloc "Compagnon" en dessous.
+
+### Portée de l'Inventaire — clarifiée avant de coder
+
+Le bloc Inventaire n'est pas qu'une intention visuelle : l'utilisateur confirme qu'il faut un
+vrai endroit pour voir les objets achetés en boutique qui ne s'équipent pas directement (potions,
+etc.) — actuellement **aucun moyen de les stocker n'existe en base**
+(`InventairePersonnage.emplacement` est obligatoire et unique par personnage, aucun concept de
+"sac"). Décision (question posée, réponse utilisateur) : **placeholder visuel pour cette passe**,
+pas de nouveau schéma/route maintenant — mais avec une vraie règle de capacité dès maintenant :
+- **4 emplacements de base par personnage** (donné explicitement par l'utilisateur).
+- **+ la capacité de transport de base du compagnon** (avant tout craft — les sacoches/harnais de
+  l'Ingénieur n'existent pas encore). Dérivée du texte libre `capaciteTransport` du seed
+  (`CAPACITE_BASE_COMPAGNON` dans `equipe.ts`) : mule=2, élan=4, sanglier dressé=1, chiens/fée/
+  gnome=0 (les chiens nécessitent un harnais crafté ; le Gnome a une capacité illimitée mais
+  réservée aux objets alchimiques — nuance pas modélisée ici, comptée 0 pour l'instant).
+- Chaque case affichée = un petit rond bordé blanc, barré de rouge façon pictogramme "vide"
+  (`.case-inventaire--vide`) ; toutes vides pour l'instant puisqu'aucune donnée réelle n'existe
+  encore derrière. Le NOMBRE de cases, lui, est bien réel (recalculé à chaque render selon la
+  taille d'équipe + compagnon présent).
+
+### Bug transversal corrigé en premier : `#app` limitait TOUTES les pages à 1000px
+
+Avant même de retravailler la page équipe, retour utilisateur : *"tu te limites trop, on est en
+plein écran pas en résolution réduite"*. Cause : `#app { max-width: 1000px; }` dans `style.css`
+bridait la largeur de **toute l'application**, quelle que soit la résolution réelle de l'écran —
+pas spécifique à la page équipe. **Corrigé pour toutes les pages** : `max-width: 1800px` (large
+mais pas infini, pour éviter un étirement absurde sur très grand écran), padding latéral ajusté.
+Règle retenue pour la suite : *plein écran par défaut sur toutes les pages*, une page qui a besoin
+d'une colonne de lecture étroite (formulaire, parchemin) pose son propre `max-width` localement
+plutôt que de brider `#app` globalement.
+
+### Round 1 — 3 colonnes, bannières, inventaire (implémenté, puis corrigé 2 fois sur retour)
+
+Nouvelle structure (`equipe.ts` réécrit, `.mise-en-page-equipe` en CSS grid 3 colonnes égales au
+départ, empilées sous 860px) : **Inventaire | Personnages | Compagnon**. Personnages en bannières
+larges (pas les capsules hautes d'un essai précédent abandonné) : portrait + fondu vers une couleur
+de classe (`COULEUR_CLASSE`, une teinte par classe — guerrier=rouge sang, voleur=violet ombre,
+barde=or, berserker=orange-rouge, ingénieur=cuivre, chasseur sylvestre=vert forêt, mage
+élémentaire=orange élémentaire, mage noir=violet vide, mage blanc=or pâle) + nom/race/classe.
+Compagnon : photo pleine carte si rempli, petit carré "+" centré (pas pleine taille) si vide.
+
+Bordures des bannières : **interim CSS par matière de race** (`--mat-*` déjà existants, réutilisés
+depuis l'étoile de sélection) — décision explicite de ne pas essayer de redécouper les cadres
+*circulaires* existants en bordures rectangulaires (aurait donné un résultat raté), avec proposition
+de prompt de secours si l'utilisateur voulait de vraies images.
+
+**Vérifié en navigateur** : 3 colonnes fonctionnelles, 4 couleurs de classe distinctes affichées,
+compagnon rempli/vide corrects, capacité d'inventaire calculée juste (16 = 4×3 personnages + 4
+Élan), aucune erreur console.
+
+### Round 2 — l'utilisateur avait déjà généré de vraies images de cadre, à utiliser directement
+
+L'utilisateur signale l'existence de `docs/img/cadre/personnage/` (5 cadres **circulaires**,
+détourés à la main, remplaçant l'étoile — **incluant un nouveau cadre Humain réel**, la race qui
+utilisait jusque-là un anneau bronze généré en CSS) et `docs/img/cadre/equipe/` (5 cadres
+**bannière**, format large ~4:1, un par race, pensés spécifiquement pour les cartes personnage de
+la page équipe).
+
+- Nouveau script `client/scripts/convertir-cadres-v2.mjs` (sharp temporaire, pas de seuillage —
+  sources déjà transparentes) → `client/public/img/cadres/{humain,nain,elfe,demi-orc,mage}.webp`
+  (cadres circulaires) et `client/public/img/cadres/equipe/{même 5 races}.webp` (cadres bannière).
+- `creation-personnage.ts` : `RACES_AVEC_IMAGE_CADRE` (qui excluait l'Humain) **supprimé** — les 5
+  races utilisent maintenant uniformément le chemin "vraie image de cadre", plus de branche
+  spéciale CSS. `.cadre--bronze` (conic-gradient CSS, 2 règles) supprimé de `style.css`, devenu
+  mort.
+- `equipe.ts`/`style.css` : `.cadre-matiere--*` (interim CSS du round 1) **supprimé**, remplacé par
+  un vrai `<img class="cadre-banniere">` superposé (z-index au-dessus du portrait/dégradé/texte),
+  une image par race, chemin `/img/cadres/equipe/{raceId}.webp`.
+
+**Bug de débordement découvert à ce round** : le contenu (portrait + étiquette) était inset d'une
+valeur fixe estimée (9%/6%) au lieu de la vraie épaisseur de bordure du cadre — mesurée après coup
+au pixel près par script one-off (alpha channel, détection de la transition opaque→transparent sur
+les lignes/colonnes médianes) : l'inset vertical réel varie de **13% (Mage, cadre fin) à 30%
+(Demi-Orc, cadre épais)** selon la race, très différent de l'estimation initiale. Table
+`INSET_CADRE_EQUIPE` (par race, mesurée) ajoutée dans `equipe.ts`, posée en variables CSS
+`--inset-v`/`--inset-h` inline par carte.
+
+### Round 3 — débordement persistant + repositionnement (retours successifs)
+
+Malgré la mesure précise, un **second bug de débordement** est apparu : `.portrait-slot` utilisait
+`top` + `bottom` avec `height: auto` sur une balise `<img>` — pour un élément remplacé
+(intrinsic ratio), CSS calcule la hauteur à partir du ratio intrinsèque de l'image et de la largeur
+utilisée, **pas** en étirant pour satisfaire à la fois `top` et `bottom` (piège classique). Résultat :
+la hauteur réelle dépassait souvent l'espace disponible, `bottom` étant silencieusement ignoré.
+**Corrigé** : `height: calc(100% - 2 * var(--inset-v))` explicite au lieu de `height: auto`.
+
+Retours suivants de l'utilisateur, tous appliqués :
+- *"réduis le rectangle par rapport à l'image, fois 0.9"* — marge de sécurité supplémentaire :
+  toutes les valeurs `INSET_CADRE_EQUIPE` recalculées pour correspondre à 90% de la fenêtre
+  mesurée (pas 100%), sur les 5 races.
+- *"il faut que tu smooth les bords, c'est censé être des rectangles à coins ronds"* —
+  `border-radius` des bannières (et de l'emplacement vide assorti) passé de 4px (quasi invisible)
+  à **18px**, correctement clippé par `overflow: hidden` déjà présent sur `.carte-slot-perso`.
+- *"pour la photo on avait dit à gauche dans le cadre et l'écriture à droite... tu peux grossir
+  l'image fois 1.5"* — **inversion** de la disposition round 1/2 (portrait avait été mis à droite,
+  texte à gauche) : portrait maintenant à **gauche** (largeur 56%→66%), fondu et étiquette à
+  **droite** (`linear-gradient` inversé à 270deg, `etiquette-slot--banniere` alignée à droite,
+  texte `text-align:right`).
+
+**Vérifié en navigateur après ce round** (mesures `getBoundingClientRect`, pas seulement visuel) :
+aucun débordement sur les 4 races testées (portrait, étiquette), aucune erreur console.
+
+**Statut : en attente de confirmation utilisateur sur ce round avant commit** (rien committé sur
+la page équipe depuis le début de cette étape — un seul commit à prévoir une fois validé, pas un
+par micro-retouche, vu le nombre d'allers-retours).
 
 ### Note pour plus tard (pas maintenant) — conversion des transitions en GIF
 
@@ -795,3 +906,45 @@ fichier GIF (ou vidéo courte) plutôt que de la recalculer en CSS/DOM à chaque
 drastiquement la charge de calcul au prix de perdre la génération procédurale (positions
 aléatoires à chaque lecture). **Ne pas commencer ce chantier avant d'avoir fini et validé les 5
 transitions** (Mage restant, puis retouches finales) — c'est une optimisation de la toute fin.
+Reste non fait à la clôture du Sprint 1 (voir section de clôture ci-dessous) — backlog Sprint 2+.
+
+---
+
+## ✅ CLÔTURE SPRINT 1 — étapes 3 à 8 de l'ordre de travail, toutes terminées
+
+Tout ce qui restait planifié plus haut ("Ordre de travail confirmé", étapes 4 à 8) a été fait dans
+la suite de la session (après les 5 transitions par race, elles-mêmes validées et commitées). Résumé
+haut niveau (le détail technique/CSS complet vit dans l'historique de commits et dans les fichiers
+concernés, pas ici — ce doc n'est plus tenu ligne à ligne au-delà de ce point) :
+
+- **Page équipe** (`equipe.ts`) : layout 3 colonnes (inventaire | personnages | compagnon), cartes
+  personnage en bannière 2:1 avec cadre thématique par race + fondu vers la couleur de classe.
+  Fiche détaillée par personnage en popup (`components/fiche-personnage.ts`) : portrait, radar de
+  stats, renommage, suppression, navigation flèches gauche/droite entre personnages (cyclique).
+  Suppression d'équipe possible depuis l'accueil (`accueil.ts`).
+- **Boutique/équipement** (`equipement.ts`) : refonte complète demandée par l'utilisateur —
+  mannequin illustré (`docs/img/boutique/`, image détourée + pièces d'équipement superposées une
+  par emplacement, calées par scan du canal alpha) qui s'illumine (teinte dorée, léger zoom) au
+  survol de l'objet correspondant en boutique, et se teinte en acier quand l'emplacement est déjà
+  équipé. Liste boutique en pile verticale (rectangles pleine largeur), filtre par type, scroll
+  interne à la boutique (le mannequin reste fixe à l'écran).
+- **Fusion Bras gauche/droit → un seul emplacement `BRAS`** (décision utilisateur, écart documenté
+  dans `CLAUDE.md`) : un brassard s'achète et s'équipe désormais pour les deux bras en un seul
+  achat. Main droite/gauche restent volontairement séparées (arme vs bouclier/grimoire).
+- **Page compagnon** (`compagnon.ts`) : grille fixe 5×2 (10 compagnons), radar de stats (PV/Force/
+  Dex/Vitalité) réutilisant le composant radar généralisé (`components/radar-stats.ts`, accepte
+  maintenant des axes et une échelle personnalisés, plus seulement les 8 stats de personnage sur
+  0-20). Cartes toujours entièrement dépliées (un essai de dépliage au survol/clic a été fait puis
+  explicitement abandonné par l'utilisateur — ne pas le réintroduire sans nouvelle demande).
+- **Récapitulatif général** : le besoin a été absorbé par la page équipe (hub central) + la fiche
+  personnage en popup — pas de page "récap" séparée construite, conformément à la question restée
+  ouverte plus haut dans ce document (tranchée de fait par l'usage plutôt que par une décision
+  explicite ; à re-questionner si l'utilisateur en reparle).
+
+**Non fait, reporté** : conversion des transitions en GIF (note ci-dessus, optimisation Sprint 2+),
+animation "pièces qui tombent" à l'entrée de la boutique (mentionnée à l'étape 4 de l'ordre de
+travail initial, jamais implémentée — pas redemandée depuis, à clarifier si toujours voulue).
+
+Sprint 1 déclaré terminé par l'utilisateur. Ce fichier devient un historique de référence pour les
+décisions de style déjà tranchées (palette, polices, cadres, mannequin) plutôt qu'un plan actif —
+consulter `Roadmap_Sprints.md` pour le suivi de sprint à jour.

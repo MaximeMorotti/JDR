@@ -39,7 +39,7 @@ Le craft d'armes, boucliers, armures et accessoires (palier Rudimentaire) est r�
 |---|---|---|---|
 | Casque en fourrure d'ours | 1× Fourrure d'ours | Ours des bois — Forêt | Défense +2 |
 | Plastron en peau de sanglier | 1× Défense de sanglier + 1× Fibre végétale | Sanglier sauvage / Liane étrangleuse — Forêt | Défense +3 |
-| Brassard en peau écailleuse (par bras) | 1× Peau écailleuse | Serpent des bois — Forêt | Défense +1 chacun |
+| Brassards en peau écailleuse (paire) | 2× Peau écailleuse | Serpent des bois — Forêt | Défense +2 |
 | Bottes en peau de loup | 1× Peau de loup | Loup gris — Forêt | Défense +1 |
 
 ---

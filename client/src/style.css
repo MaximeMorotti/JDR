@@ -124,10 +124,14 @@ button {
   cursor: pointer;
 }
 
+/* Plein écran par défaut pour toutes les pages — pas de bande centrale étroite artificielle.
+   Les pages qui ont besoin d'une colonne de lecture plus étroite (formulaire de création,
+   parchemin...) posent leur propre max-width localement plutôt que de brider tout le monde ici. */
 #app {
-  max-width: 1000px;
+  width: 100%;
+  max-width: 1800px;
   margin: 0 auto;
-  padding: 24px 20px 64px;
+  padding: 24px 32px 64px;
   min-height: 100svh;
 }
 
@@ -218,6 +222,30 @@ button {
   gap: 10px;
   margin-top: 24px;
   flex-wrap: wrap;
+}
+
+/* Petit bouton rond "croix" partagé (fermer une popup, supprimer une équipe/un compagnon...) —
+   même comportement de survol partout dans l'appli : grossit ×1.25 et inverse ses couleurs
+   (fond noir → rouge, icône rouge → noir), pour rester bien visible et cohérent où qu'il
+   apparaisse. Chaque usage garde sa propre classe pour le positionnement/la taille de base. */
+.bouton-croix {
+  border-radius: 50%;
+  border: 1px solid var(--danger);
+  background: rgba(13, 11, 18, 0.85);
+  color: var(--danger);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  cursor: pointer;
+  transition: transform 0.12s ease-out, background-color 0.12s, color 0.12s, border-color 0.12s, border-width 0.12s;
+}
+.bouton-croix:hover {
+  transform: scale(1.25);
+  background: var(--danger);
+  color: #0d0b12;
+  border-color: #0d0b12;
+  border-width: 3px;
 }
 
 /* ---------- Cartes génériques ---------- */
@@ -453,52 +481,166 @@ button {
 }
 .onglet-personnage.actif { color: var(--gold); border-color: var(--gold-border); background: var(--gold-soft); }
 
-.colonnes-equipement {
+/* Mannequin (panneau gauche) | Boutique (panneau droit) — croquis papier de l'utilisateur : un
+   personnage/mannequin central avec ses emplacements d'équipement disposés autour, la boutique à
+   droite avec un filtre par type au-dessus de la grille d'objets. */
+.mise-en-page-boutique {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: 20px;
+  align-items: start;
+}
+@media (min-width: 860px) {
+  /* Vrai moitié-moitié (pas un tiers/deux-tiers) — demandé explicitement, l'équipement porté
+     doit avoir autant de place que la boutique, pas juste une colonne étroite à côté d'elle. */
+  .mise-en-page-boutique { grid-template-columns: 1fr 1fr; }
 }
 
-@media (max-width: 720px) {
-  .colonnes-equipement { grid-template-columns: 1fr; }
-}
-
-.grille-objets {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 10px;
-}
-
-.carte-objet {
+.panneau-mannequin {
   border: 1px solid var(--border);
   background: var(--bg-card);
-  border-radius: 10px;
-  padding: 12px;
+  border-radius: 14px;
+  padding: 16px;
+}
+.panneau-mannequin h3 { margin-top: 0; text-align: center; }
+
+/* Mannequin habillé : l'image de base (docs/img/boutique/manequin.png) sert de fond (gardée
+   visible en dessous au cas où une pièce d'équipement laisserait apparaître un pixel rongé sur ses
+   bords, cf. note de l'utilisateur), et chaque illustration d'équipement (PARTIES_MANNEQUIN dans
+   equipement.ts) se superpose exactement par-dessus — toutes calées sur le même canevas 1024×1024,
+   empilées dans l'ordre du DOM (dos → devant). */
+.zone-image-mannequin { position: relative; width: 100%; }
+.image-mannequin { display: block; width: 100%; height: auto; }
+
+.partie-mannequin {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  transition: transform 0.15s ease-out, filter 0.15s ease-out;
+}
+/* Pièce actuellement équipée → teinte acier (désaturée, virée vers le bleu-gris froid) pour se
+   distinguer du bois/cuir chaud du mannequin de base et des autres emplacements encore vides —
+   "porté" doit se voir d'un coup d'œil. Reste actif même si on ne survole rien : c'est un état
+   permanent, pas une interaction. */
+.partie-mannequin.equipe {
+  filter: grayscale(0.55) brightness(0.92) sepia(0.12) hue-rotate(150deg) saturate(1.4);
 }
 
-.carte-objet .nom { font-weight: 600; }
-.carte-objet .prix { color: var(--gold); font-family: var(--heading); }
-.carte-objet .desc { font-size: 0.78rem; color: var(--text-faint); margin: 6px 0; }
-.carte-objet .stat-obj { font-size: 0.82rem; color: var(--success); }
-
-.emplacements {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+/* Survol boutique → cette pièce précise grossit ×1.05 depuis SON propre centre (transform-origin
+   posé en inline style par pièce) et prend une teinte dorée claire et brillante — demandé
+   explicitement à la place du halo générique utilisé avant. `sepia`+`hue-rotate`+`saturate` pousse
+   n'importe quelle couleur source vers un ton doré chaud, `brightness` l'éclaircit. Déclaré APRÈS
+   `.equipe` : à spécificité égale, le survol doit gagner et remplacer temporairement la teinte
+   acier, même sur une pièce déjà équipée (demandé explicitement — le survol reste actif dessus). */
+.partie-mannequin.en-survol {
+  transform: scale(1.05);
+  filter: brightness(1.35) sepia(0.55) hue-rotate(-15deg) saturate(3.2) drop-shadow(0 0 10px rgba(255, 210, 90, 0.85));
 }
 
-.emplacement {
+/* Liste compacte sous l'image : le texte (nom d'objet, retrait) que l'image seule ne peut pas
+   porter. Survoler une ligne illumine aussi le point chaud correspondant (aller-retour avec la
+   boutique). */
+.liste-equipement-compacte {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 10px;
+  margin-top: 14px;
+  font-size: 0.78rem;
+}
+.ligne-equipement-compacte {
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+  padding: 4px 8px;
+  cursor: default;
+}
+.ligne-equipement-compacte.occupe { border-style: solid; background: var(--bg-panel); cursor: pointer; }
+
+.entete-ligne-compacte {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border: 1px dashed var(--border);
-  border-radius: 8px;
-  padding: 8px 12px;
+  gap: 6px;
+}
+.ligne-equipement-compacte .nom-slot { color: var(--text-faint); flex-shrink: 0; }
+.ligne-equipement-compacte .contenu-slot { color: var(--text); text-align: right; overflow-wrap: anywhere; }
+.ligne-equipement-compacte:not(.occupe) .contenu-slot { color: var(--text-faint); }
+.ligne-equipement-compacte .bouton-croix { width: 18px; height: 18px; font-size: 0.6rem; flex-shrink: 0; }
+
+/* Déplié au survol (stats + description), reste déplié si épinglé par un clic — indépendamment
+   des autres lignes, jamais en accordéon (demandé explicitement : un clic ne doit replier
+   personne d'autre). `max-height` + `overflow:hidden` plutôt que `display:none` pour une
+   transition douce plutôt qu'un saut sec. */
+.details-ligne-compacte {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.2s ease;
+}
+.ligne-equipement-compacte:hover .details-ligne-compacte,
+.ligne-equipement-compacte.epingle .details-ligne-compacte {
+  max-height: 140px;
+}
+.details-ligne-compacte .stat-obj { font-size: 0.74rem; color: var(--success); display: inline-block; margin: 4px 6px 0 0; }
+.details-ligne-compacte .desc { font-size: 0.74rem; color: var(--text-faint); margin: 4px 0 2px; }
+
+.panneau-boutique { min-width: 0; }
+
+/* Titre centré (comme "Équipement porté" en face) ; le filtre est une ligne à part, alignée à
+   GAUCHE — demandé explicitement pour qu'il tombe près du centre de l'écran (le bord gauche de ce
+   panneau, juste après le partage moitié-moitié), pas collé au bord droit de l'écran. */
+.entete-boutique { text-align: center; margin-bottom: 6px; }
+.entete-boutique h3 { margin: 0; }
+
+.ligne-filtre-boutique {
+  text-align: left;
+  margin-bottom: 12px;
   font-size: 0.85rem;
+  color: var(--text-dim);
 }
 
-.emplacement.occupe { border-style: solid; background: var(--bg-card); }
-.emplacement .nom-slot { color: var(--text-faint); min-width: 90px; }
+.filtre-boutique {
+  font: inherit;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  color: var(--text);
+  margin-left: 6px;
+}
+.filtre-boutique:focus { outline: none; border-color: var(--gold-border); }
+
+/* Empilement d'objets (pas une grille de cartes côte à côte) : chaque objet est un rectangle
+   pleine largeur, rangé au-dessus du suivant — pense "pile triable" plutôt que "rayon de
+   bibliothèque", pour que l'ordre (prix, etc.) se lise clairement de haut en bas. Défilement
+   INTERNE à cette zone seulement (`max-height`+`overflow-y`) : la page elle-même ne doit pas
+   scroller avec, sinon le mannequin disparaît de l'écran dès qu'on parcourt la liste (bug
+   constaté). */
+.grille-objets {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 70vh;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.carte-objet {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  border-radius: 10px;
+  padding: 10px 14px;
+}
+
+.carte-objet .corps-carte-objet { flex: 1; min-width: 0; }
+.carte-objet .nom { font-weight: 600; }
+.carte-objet .prix { color: var(--gold); font-family: var(--heading); }
+.carte-objet .desc { font-size: 0.78rem; color: var(--text-faint); margin: 4px 0 0; }
+.carte-objet .stat-obj { font-size: 0.82rem; color: var(--success); display: inline-block; margin-right: 8px; }
+.carte-objet button { flex-shrink: 0; width: auto; white-space: nowrap; }
 
 .stuff-verrouille {
   background: var(--gold-soft);
@@ -511,12 +653,21 @@ button {
 
 /* ---------- Compagnon ---------- */
 
+/* Toujours 5 par ligne (les 10 compagnons du Codex tiennent donc pile en 2 lignes de 5) — comme
+   pour les autres grilles de ce projet, colonnes fixes plutôt qu'un `auto-fill` qui recalculerait
+   un nombre différent selon la largeur d'écran. */
 .grille-compagnons {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  grid-template-columns: repeat(5, 1fr);
   gap: 14px;
 }
+@media (max-width: 900px) {
+  .grille-compagnons { grid-template-columns: repeat(2, 1fr); }
+}
 
+/* Carte toujours entièrement dépliée (pas de survol/clic à faire — décision explicite de
+   l'utilisateur après avoir testé le dépliage au survol) : portrait, nom, rôle, radar de stats,
+   transport, prérequis et bouton sont tous visibles en permanence. */
 .carte-compagnon {
   border: 1px solid var(--border);
   background: var(--bg-card);
@@ -538,6 +689,9 @@ button {
   border: 1px solid var(--border-soft);
   background: var(--bg-panel);
 }
+
+.radar-compagnon { display: flex; justify-content: center; margin-top: 4px; }
+.radar-compagnon svg { width: 130px; height: 130px; }
 
 /* ---------- Récapitulatif ---------- */
 
@@ -588,6 +742,22 @@ button {
 
 .item-equipe:hover { border-color: var(--gold-border); cursor: pointer; }
 
+.infos-item-equipe {
+  display: flex;
+  flex: 1;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.btn-supprimer-equipe {
+  flex-shrink: 0;
+  margin-left: 14px;
+  width: 26px;
+  height: 26px;
+  font-size: 0.8rem;
+}
+
 /* ---------- Popup de confirmation ---------- */
 
 .overlay-confirmation {
@@ -613,55 +783,306 @@ button {
 
 .boite-confirmation p { color: var(--text); margin: 0; }
 
-/* ---------- Page équipe (hub) ---------- */
+/* ---------- Fiche détaillée d'un personnage (popup) ---------- */
 
-.grille-equipe {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 14px;
-  margin-bottom: 90px;
-}
-
-.carte-slot-perso {
-  position: relative;
-  border: 1px solid var(--border);
-  background: var(--bg-card);
-  border-radius: 12px;
-  padding: 14px;
-  cursor: pointer;
-  transition: border-color 0.15s, transform 0.15s;
-  overflow: hidden;
-}
-
-.carte-slot-perso:hover { border-color: var(--gold-border); transform: translateY(-2px); }
-
-.carte-slot-perso .portrait-slot {
-  width: 100%;
-  aspect-ratio: 4 / 3;
-  object-fit: cover;
-  object-position: top;
-  border-radius: 8px;
-  margin-bottom: 8px;
-  border: 1px solid var(--border-soft);
-}
-
-.carte-slot-perso .btn-supprimer-slot {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  border: 1px solid var(--danger);
-  background: rgba(13, 11, 18, 0.8);
-  color: var(--danger);
+.overlay-fiche-perso {
+  position: fixed;
+  inset: 0;
+  background: rgba(6, 5, 9, 0.72);
+  backdrop-filter: blur(2px);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.85rem;
-  line-height: 1;
+  z-index: 100;
+  padding: 24px;
+  animation: apparition 0.12s ease-out;
 }
-.carte-slot-perso .btn-supprimer-slot:hover { background: var(--danger-soft); }
+
+/* Conteneur purement positionnel — `overflow` reste au défaut `visible` (sur les DEUX axes)
+   exprès : le croix et les flèches sont des enfants positionnés en dehors de cette boîte (offsets
+   négatifs), et un `overflow-y` non-visible ici les couperait/ferait apparaître un scroll
+   horizontal (bug constaté — CSS force `overflow-x` à `auto` dès que `overflow-y` n'est pas
+   `visible`, même si `overflow-x` est mis à `visible` explicitement). Le fond, la bordure et le
+   scroll vertical (si jamais le contenu dépasse) vivent dans `.fiche-perso-defilement` à la place,
+   qui ne contient PAS le croix/les flèches. */
+.boite-fiche-perso {
+  position: relative;
+  width: min(680px, 100%);
+}
+
+.fiche-perso-defilement {
+  background: var(--bg-panel);
+  border: 1px solid var(--gold-border);
+  border-radius: 16px;
+  max-height: 94vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+/* `max-height` en plus du ratio 2:1 : à 680px de large, un vrai 2:1 ferait 340px de haut seulement
+   pour le bandeau — sur un écran bas, ça force un scroll pour voir le reste de la fiche. `object-
+   fit: contain` (pas `cover`) : l'image ne doit JAMAIS être rognée, on doit toujours la voir en
+   entier (bug constaté avec `cover`, qui recadrait horizontalement dès que max-height limitait la
+   boîte) — les 5 portraits équipe partagent tous le même ratio 2:1 source, donc dans une boîte de
+   dimensions fixes ils s'affichent tous à la MÊME taille en pixels, jamais déformés ni recadrés. */
+.fiche-perso-banniere {
+  display: block;
+  width: 100%;
+  aspect-ratio: 2 / 1;
+  max-height: 26vh;
+  object-fit: contain;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 16px 16px 0 0;
+}
+
+.fiche-perso-corps { padding: 16px 24px 22px; text-align: center; }
+
+/* Champ de renommage stylé comme un titre — pas de rupture visuelle tant qu'on n'y touche pas. */
+.fiche-perso-nom {
+  font: inherit;
+  font-family: var(--heading);
+  font-size: 1.4rem;
+  color: var(--gold);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  text-align: center;
+  width: 100%;
+  padding: 4px 8px;
+}
+.fiche-perso-nom:hover, .fiche-perso-nom:focus {
+  outline: none;
+  border-color: var(--border);
+  background: var(--bg-card);
+}
+
+.fiche-perso-sous-titre { color: var(--text-dim); margin-top: 2px; }
+
+.fiche-perso-lore {
+  color: var(--text-dim);
+  font-size: 0.85rem;
+  margin: 8px auto 0;
+  max-width: 46ch;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.fiche-perso-radar { display: flex; justify-content: center; margin-top: 4px; }
+.fiche-perso-radar svg { width: min(200px, 85%); height: auto; }
+
+.fiche-perso-actions { margin-top: 14px; }
+
+/* À cheval sur le coin (moitié dehors, moitié dedans) plutôt que rangé dans le padding intérieur —
+   demandé explicitement pour rester visible par-dessus le bandeau portrait. */
+.btn-fermer-fiche {
+  position: absolute;
+  top: -14px;
+  right: -14px;
+  z-index: 2;
+  width: 32px;
+  height: 32px;
+}
+
+/* Entièrement HORS de la boîte (pas à moitié dessus comme le bouton fermer) : ce sont des
+   contrôles de navigation, pas des éléments du contenu de la fiche — doivent rester lisibles même
+   quand le bandeau/texte en dessous est clair. */
+.fleche-fiche {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid var(--gold-border);
+  background: rgba(13, 11, 18, 0.85);
+  color: var(--gold);
+  font-size: 1.5rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.12s ease-out, background-color 0.12s;
+}
+.fleche-fiche:hover:not(:disabled) { background: var(--bg-card); transform: translateY(-50%) scale(1.1); }
+.fleche-fiche:disabled { opacity: 0.3; cursor: default; }
+.fleche-fiche--gauche { left: -64px; }
+.fleche-fiche--droite { right: -64px; }
+
+/* ---------- Page équipe (hub) ---------- */
+
+/* 3 colonnes — inventaire | personnages | compagnon (croquis utilisateur) — empilées sur mobile
+   (inventaire d'abord, puis personnages, puis compagnon), côte à côte au-delà de 860px. La colonne
+   personnages est plus large que les deux autres : ce sont ses cadres bannière qui doivent se lire
+   le mieux, pas un simple tiers strict. */
+.mise-en-page-equipe {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 28px;
+  align-items: start;
+  margin-bottom: 100px; /* dégage le bouton Boutique flottant */
+}
+@media (min-width: 860px) {
+  .mise-en-page-equipe { grid-template-columns: 0.85fr 1.7fr 0.85fr; }
+}
+
+.grille-equipe { display: grid; gap: 14px; }
+.grille-equipe--bannieres { grid-template-columns: 1fr; }
+
+.carte-slot-perso {
+  position: relative;
+  border-radius: 22px;
+  cursor: pointer;
+  transition: transform 0.15s;
+  overflow: hidden;
+}
+.carte-slot-perso:hover { transform: translateY(-2px); }
+
+/* Bannière personnage : rectangle large aux proportions du cadre réel (docs/img/cadre/equipe/).
+   Composition en 3 couches, du fond vers le premier plan (spécifiée précisément par l'utilisateur
+   à partir d'une maquette de référence) :
+   1. `.banniere-contenu` (arrière-plan) : rectangle à bord rond, couleur de classe.
+   2. `.portrait-slot` (couche intermédiaire) : portrait large (~2:1, non déformé — `object-fit:
+      contain` ne recadre ni n'étire jamais), colle son mur gauche + toute sa hauteur au rectangle
+      de couleur. Le fondu vers la couleur est appliqué SUR l'image elle-même via un masque CSS
+      (transparence progressive sur son mur droit), pas via un calque séparé — la couleur de fond
+      apparaît naturellement à travers la zone rendue transparente.
+   3. `.cadre-banniere` (premier plan) : le cadre illustré, par-dessus tout le reste, dans un calque
+      séparé et NON clippé avec le contenu (cf. note plus bas) — c'est lui qui doit "gagner" contre
+      n'importe quoi en dessous.
+   Étiquette (nom/race/classe) au bord droit du rectangle de couleur, pas centrée.
+
+   `.banniere-contenu` est clippé (overflow:hidden + coins arrondis), `.cadre-banniere` ne l'est
+   pas : le PNG de chaque cadre garde une fine marge transparente résiduelle autour de son
+   illustration (ne touche pas exactement les bords du canevas) ; --echelle-cadre (mesurée par
+   race, cf. equipe.ts) l'agrandit pour que l'illustration atteigne vraiment les bords de la carte.
+   Le clipper avec le contenu aurait aussi rogné cet agrandissement (bug constaté) — d'où la
+   séparation en 2 calques indépendants plutôt qu'un cadre enfant du rectangle clippé.
+
+   `.banniere-contenu` doit "flotter" centré dans la carte plutôt que de la remplir bord à bord
+   (--rect-inset-v/h, dérivées dans equipe.ts de HAUTEUR_CONTENU_* et LARGEUR_CONTENU_* — deux
+   réglages séparés, un par axe, à ne jamais coupler). Le portrait ET le texte partagent EXACTEMENT ces mêmes
+   bornes (même mur gauche, même haut/bas que le rectangle — cf. maquette de référence : le
+   portrait "colle" au rectangle, il ne s'en distingue pas). Les trois sont des enfants DIRECTS de
+   la carte (pas de `.banniere-contenu` comme parent commun, cf. plus bas), tous positionnés avec
+   la MÊME paire --rect-inset-v/h dans le même espace de coordonnées (% de la carte) — jamais
+   nichés dans un parent redimensionné : un `transform:scale()` non-uniforme (h≠v) déformerait tout
+   ce qu'il contient de façon différente par race (bug constaté : les portraits ne rendaient pas
+   tous au même ratio), et un cadrage séparé du rectangle désynchronise portrait et rectangle dès
+   que l'un des deux change d'échelle par race (autre bug constaté). */
+.carte-slot-perso--banniere {
+  aspect-ratio: 2064 / 512;
+  overflow: visible;
+}
+.carte-slot-perso--banniere .banniere-contenu {
+  position: absolute;
+  top: var(--rect-inset-v);
+  bottom: var(--rect-inset-v);
+  left: var(--rect-inset-h);
+  right: var(--rect-inset-h);
+  border-radius: 18px;
+  background: var(--couleur-classe);
+  z-index: 1;
+}
+/* Portrait : illustration large (~2:1) composée spécifiquement pour cette bannière
+   (docs/img/équipe/, remplace le portrait carré recadré en 1:1 utilisé avant). `object-fit:
+   contain` (pas `cover`) : l'image n'est JAMAIS rognée par sa propre boîte — seul le cadre
+   illustré, superposé par-dessus, doit visuellement "couper" les bords du portrait. `cover`
+   recadrait verticalement dès que la fenêtre du cadre était plus courte que l'image, ce qui
+   n'est pas voulu.
+   `width: auto` (pas une valeur fixe en %) : la boîte de l'image doit faire EXACTEMENT la taille
+   du portrait visible (hauteur disponible × ratio intrinsèque ~2:1), sinon `contain` laisse une
+   marge invisible (letterboxing) entre le bord réel du portrait et le bord de sa boîte — et le
+   masque de fondu ci-dessous, positionné en % de la boîte, tombe alors dans cette zone déjà
+   transparente au lieu de fondre le vrai bord droit du portrait (bug constaté : le fondu ne
+   touchait aucun pixel visible). */
+.carte-slot-perso--banniere .portrait-slot {
+  position: absolute;
+  top: var(--rect-inset-v);
+  left: var(--rect-inset-h);
+  height: calc(100% - 2 * var(--rect-inset-v));
+  width: auto;
+  max-width: calc(100% - 2 * var(--rect-inset-h));
+  object-fit: contain;
+  object-position: left center;
+  z-index: 1;
+  -webkit-mask-image: linear-gradient(90deg, black 0%, black 70%, transparent 100%);
+  mask-image: linear-gradient(90deg, black 0%, black 70%, transparent 100%);
+}
+.carte-slot-perso--banniere .etiquette-slot--banniere {
+  position: absolute;
+  z-index: 2;
+  top: var(--rect-inset-v);
+  bottom: var(--rect-inset-v);
+  right: var(--rect-inset-h);
+  max-width: 55%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-end;
+  text-align: right;
+  /* Espace vide à droite (pas une réduction de `right`/`max-width`) pour repousser le texte vers
+     la gauche sans toucher aux bornes du bloc — texte auparavant trop collé au mur droit. */
+  padding: 0 24px 0 4px;
+  background: none;
+}
+.carte-slot-perso--banniere .etiquette-slot--banniere h3 {
+  margin: 0 0 4px;
+  font-size: 1.5rem;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
+}
+.carte-slot-perso--banniere .sous-titre-slot { font-size: 0.85rem; color: rgba(236, 224, 200, 0.85); letter-spacing: 0.02em; }
+
+.carte-slot-perso--banniere .cadre-banniere {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 2;
+  pointer-events: none;
+  /* `translateY` en % se calcule sur la hauteur PROPRE de l'image (pas de la carte) — c'est
+     exactement le repère demandé pour --decalage-cadre-v (ex: Demi-Orc, cadre légèrement remonté
+     par rapport à son rectangle). Par défaut 0% (aucun décalage) pour les autres races. */
+  transform: scale(var(--echelle-cadre)) translateY(var(--decalage-cadre-v, 0%));
+}
+/* Compagnon : portrait plein cadre (aussi grand que possible), étiquette en surimpression bas. */
+.carte-slot-perso--compagnon {
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  aspect-ratio: 3 / 4;
+}
+.carte-slot-perso--compagnon .portrait-slot {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top;
+}
+.carte-slot-perso--compagnon .etiquette-slot {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 22px 14px 14px;
+  background: linear-gradient(180deg, transparent, rgba(8, 5, 3, 0.92) 65%);
+  text-align: center;
+}
+.carte-slot-perso--compagnon .etiquette-slot h3 { margin: 0 0 2px; font-size: 1rem; }
+.carte-slot-perso--compagnon .sous-titre-slot { font-size: 0.78rem; color: var(--text-dim); }
+
+.carte-slot-perso .btn-supprimer-slot {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 28px;
+  height: 28px;
+  font-size: 0.85rem;
+  z-index: 3;
+}
 
 .slot-vide {
   border: 1px dashed var(--border);
@@ -670,7 +1091,6 @@ button {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 180px;
   cursor: pointer;
   color: var(--text-faint);
   font-family: var(--heading);
@@ -678,6 +1098,77 @@ button {
   transition: border-color 0.15s, color 0.15s;
 }
 .slot-vide:hover { border-color: var(--gold-border); color: var(--gold); }
+
+/* Emplacement personnage vide : même gabarit que la bannière remplie. */
+.slot-vide--banniere {
+  border-radius: 18px;
+  aspect-ratio: 2064 / 512;
+}
+
+/* Emplacement compagnon vide : petit carré centré (pas la pleine taille de la carte remplie). */
+.colonne-compagnon { display: flex; flex-direction: column; }
+.slot-vide--compagnon {
+  width: 90px;
+  height: 90px;
+  margin: 12px auto 0;
+  border-radius: 16px;
+}
+
+/* Panneau inventaire — forme de "sac" (haut arrondi, léger rétrécissement), taille du sac non
+   figée : la grille de cases grandit avec la capacité réelle (4 par personnage + compagnon). */
+.panneau-inventaire {
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  border-radius: 20px 20px 34px 34px;
+  padding: 16px 14px;
+}
+.panneau-inventaire h2 { margin-top: 0; text-align: center; }
+
+/* Toujours 4 placeholders par ligne (jamais plus, jamais moins) — colonnes en `1fr` plutôt qu'une
+   largeur de case fixe, pour que la case elle-même s'agrandisse et occupe tout l'espace disponible
+   du panneau plutôt que de rester petite avec du vide autour. */
+.sac-inventaire {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  justify-items: center;
+}
+
+.case-inventaire {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: default;
+}
+
+/* Case vide : petit rond barré rouge à bord blanc, façon pictogramme "interdit"/"rien ici".
+   Bordures et inset en unités relatives (pas px fixes) pour rester proportionnées à la case
+   beaucoup plus grande qu'avant. */
+.case-inventaire--vide {
+  border: 3px solid rgba(236, 224, 200, 0.55);
+  background: rgba(0, 0, 0, 0.25);
+  position: relative;
+}
+.case-inventaire--vide::before {
+  content: "";
+  position: absolute;
+  inset: 14%;
+  border-radius: 50%;
+  border: 3px solid #c9433a;
+}
+.case-inventaire--vide::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 12%;
+  right: 12%;
+  height: 3px;
+  background: #c9433a;
+  transform: rotate(-45deg);
+}
 
 /* ================================================================
    Transitions thématiques par race (voir components/transition-race.ts)
@@ -1089,37 +1580,8 @@ button {
   transition: transform 0.5s cubic-bezier(0.65, 0, 0.35, 1), box-shadow 0.5s ease;
 }
 
-/* Anneau bronze lisse (Humain uniquement) — généré en CSS, pas d'illustration de cadre. */
-.cadre--bronze {
-  border-radius: 50%;
-  padding: 13px;
-  box-shadow:
-    0 6px 16px rgba(0, 0, 0, 0.65),
-    inset 0 2px 2px rgba(255, 255, 255, 0.3),
-    inset 0 -3px 5px rgba(0, 0, 0, 0.5);
-}
-
-.cadre--bronze::after {
-  content: "";
-  position: absolute;
-  inset: 13px;
-  border-radius: 50%;
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.5);
-  pointer-events: none;
-}
-
-.cadre--bronze img {
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
-  object-fit: cover;
-  object-position: 50% 12%;
-  display: block;
-  box-shadow: inset 0 0 16px rgba(0, 0, 0, 0.6);
-}
-
-/* Cadres illustrés (Nain, Elfe, Mage, Demi-Orc) : vraie image de cadre superposée au portrait,
-   voir docs/img/cadre/ + client/scripts/detourer-cadres.mjs. */
+/* Cadres illustrés pour les 5 races : vraie image de cadre superposée au portrait, voir
+   docs/img/cadre/personnage/ + client/scripts/convertir-cadres-v2.mjs. */
 .cadre--image {
   filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.6));
 }
@@ -1195,12 +1657,6 @@ button {
 }
 
 .point-race.selectionnee .nom-race-etoile { opacity: 0; }
-
-/* Anneau bronze lisse (Humain uniquement) — les 4 autres races utilisent une vraie image de
-   cadre (voir .cadre--image plus haut), pas une texture CSS. */
-.cadre--bronze {
-  background: conic-gradient(from 45deg, var(--mat-bronze-dark), var(--mat-bronze-light) 25%, var(--mat-bronze-base) 50%, var(--mat-bronze-light) 75%, var(--mat-bronze-dark));
-}
 
 /* ================================================================
    Étiquette parchemin — se déroule sous la race agrandie en bas de l'étoile

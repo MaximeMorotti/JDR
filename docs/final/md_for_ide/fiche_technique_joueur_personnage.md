@@ -87,8 +87,7 @@
 | **Tête** | `objet` | Casque, capuche, couronne... |
 | **Collier** | `objet` | Amulette, pendentif |
 | **Torse** | `objet` | Plastron, tunique, robe |
-| **Bras Gauche** | `objet` | Brassard/manche |
-| **Bras Droit** | `objet` | Brassard/manche |
+| **Bras** | `objet` | Brassard/manche — un seul achat/équipement couvre les deux bras à la fois (fusion de "Bras Gauche"/"Bras Droit", décision Sprint 1 : voir écart CLAUDE.md) |
 | **Anneau (x2)** | `objet[2]` | 2 emplacements disponibles |
 | **Bracelet (x2)** | `objet[2]` | 2 emplacements disponibles |
 | **Bas** | `objet` | Jambières, pantalon |
@@ -103,6 +102,8 @@
 | **Main Droite** | `objet` | Arme principale (épée, bâton, dague...) |
 | **Main Gauche** | `objet` | Arme secondaire ou bouclier |
 | **Carquois / Sac de munitions** | `objet` | Réservé aux classes à distance (Archer) ou arme de lancé |
+
+> **Note :** Main Droite et Main Gauche restent deux emplacements séparés (contrairement à Bras ci-dessus) : ce sont des objets fonctionnellement différents (arme principale vs arme secondaire/bouclier), pas une paire symétrique — les fusionner empêcherait d'équiper une arme ET un bouclier simultanément.
 
 > **Note :** Chaque objet d'équipement pourrait avoir ses propres sous-attributs : Durabilité (`int`), Rareté (`str`: commun/rare/épique/légendaire), Bonus de statistiques (`liste`), Niveau requis (`int`).
 

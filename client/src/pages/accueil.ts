@@ -1,4 +1,5 @@
 import { api } from "../api";
+import { confirmerSuppression } from "../components/confirmation";
 import { naviguer } from "../router";
 import { state } from "../state";
 
@@ -39,31 +40,54 @@ export async function renderAccueil(app: HTMLElement) {
     }
   });
 
-  const equipes = await api.listerEquipes();
   const zoneEquipes = app.querySelector<HTMLElement>("#equipes-existantes")!;
-  if (equipes.length === 0) return;
 
-  zoneEquipes.innerHTML = `
-    <h2 style="margin-top:32px">Reprendre une équipe</h2>
-    <div class="liste-equipes">
-      ${equipes
-        .map(
-          (e) => `
-        <div class="item-equipe" data-id="${e.id}">
-          <span>${e.nom} — ${e.personnages.length}/4 personnage(s)${e.compagnonEquipe ? ` · ${e.compagnonEquipe.compagnon.nom}` : ""}</span>
-          <span>${e.orRestant} po restantes →</span>
-        </div>
-      `
-        )
-        .join("")}
-    </div>
-  `;
+  async function chargerEquipes() {
+    const equipes = await api.listerEquipes();
+    if (equipes.length === 0) {
+      zoneEquipes.innerHTML = "";
+      return;
+    }
 
-  zoneEquipes.querySelectorAll<HTMLElement>(".item-equipe").forEach((el) => {
-    el.addEventListener("click", () => {
-      const equipe = equipes.find((e) => e.id === el.dataset["id"])!;
-      state.equipeId = equipe.id;
-      naviguer(equipe.personnages.length > 0 ? "/equipe" : "/creation");
+    zoneEquipes.innerHTML = `
+      <h2 style="margin-top:32px">Reprendre une équipe</h2>
+      <div class="liste-equipes">
+        ${equipes
+          .map(
+            (e) => `
+          <div class="item-equipe" data-id="${e.id}">
+            <span class="infos-item-equipe">
+              <span>${e.nom} — ${e.personnages.length}/4 personnage(s)${e.compagnonEquipe ? ` · ${e.compagnonEquipe.compagnon.nom}` : ""}</span>
+              <span>${e.orRestant} po restantes →</span>
+            </span>
+            <button class="bouton-croix btn-supprimer-equipe" data-supprimer-equipe="${e.id}" title="Supprimer ${e.nom}">✕</button>
+          </div>
+        `
+          )
+          .join("")}
+      </div>
+    `;
+
+    zoneEquipes.querySelectorAll<HTMLElement>(".item-equipe").forEach((el) => {
+      el.addEventListener("click", (ev) => {
+        if ((ev.target as HTMLElement).closest("[data-supprimer-equipe]")) return;
+        const equipe = equipes.find((e) => e.id === el.dataset["id"])!;
+        state.equipeId = equipe.id;
+        naviguer(equipe.personnages.length > 0 ? "/equipe" : "/creation");
+      });
     });
-  });
+
+    zoneEquipes.querySelectorAll<HTMLElement>("[data-supprimer-equipe]").forEach((btn) => {
+      btn.addEventListener("click", async (ev) => {
+        ev.stopPropagation();
+        const equipe = equipes.find((e) => e.id === btn.dataset["supprimerEquipe"]);
+        const ok = await confirmerSuppression(`Supprimer l'équipe "${equipe?.nom}" ? Cette action est irréversible.`);
+        if (!ok) return;
+        await api.supprimerEquipe(btn.dataset["supprimerEquipe"]!);
+        await chargerEquipes();
+      });
+    });
+  }
+
+  await chargerEquipes();
 }

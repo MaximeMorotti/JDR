@@ -112,8 +112,7 @@ Les pièces restent achetables séparément (ex: juste le plastron à 8 po si le
 |---|---|---|---|---|
 | Tête | Casque en cuir | 4 po | +1 | Simple calotte de cuir bouilli |
 | Torse | Plastron en cuir | 8 po | +2 | Pièce la plus protectrice du set, cuir épais cousu |
-| Bras gauche | Brassard en cuir | 3 po | +1 | Protection légère de l'avant-bras |
-| Bras droit | Brassard en cuir | 3 po | +1 | Identique, symétrique |
+| Bras | Brassards en cuir (paire) | 6 po | +2 | Protection légère des avant-bras — un seul achat, un seul emplacement, couvre les deux bras (fusion Gauche/Droit, décision Sprint 1 : voir écart CLAUDE.md) |
 | Bas | Jambières en cuir | 5 po | +1 | Protège les jambes sans gêner la mobilité |
 | Pied | Bottes de voyage | 2 po | +1 | Bottes solides, pensées pour la marche longue |
 | **Total du set** | | **25 po** | **+7** | |
@@ -123,7 +122,7 @@ Les pièces restent achetables séparément (ex: juste le plastron à 8 po si le
 |---|---|---|---|---|
 | Tête | Casque en fourrure d'ours | 1x Fourrure d'ours | +2 | Épaisse fourrure protégeant crâne et nuque |
 | Torse | Plastron en peau de sanglier | 1x Défense de sanglier + 1x Fibre végétale | +3 | Cuir épais renforcé de lanières végétales |
-| Bras (G/D) | Brassard en peau écailleuse | 1x Peau écailleuse (par bras) | +1 chacun | Écailles de serpent cousues sur cuir souple |
+| Bras | Brassards en peau écailleuse (paire) | 2x Peau écailleuse (1 par bras) | +2 | Écailles de serpent cousues sur cuir souple — un seul emplacement, couvre les deux bras |
 | Pied | Bottes en peau de loup | 1x Peau de loup | +1 | Doublure chaude, bonne adhérence |
 
 ### Armure Gobelin (loot Ruines / Grotte)

@@ -171,8 +171,8 @@ Idées déjà évoquées mais explicitement reportées :
 
 | Sprint | Statut |
 |---|---|
-| 0 — Fondations techniques | ⬜ À faire |
-| 1 — Création de personnage | ⬜ À faire |
+| 0 — Fondations techniques | ✅ Fait |
+| 1 — Création de personnage | ✅ Fait |
 | 2 — Déplacement sur carte | ⬜ À faire |
 | 3 — Combat contre des mobs | ⬜ À faire |
 | 4 — Équipement, craft, compagnons | ⬜ À faire |

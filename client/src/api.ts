@@ -155,6 +155,11 @@ export const api = {
     }),
   supprimerPersonnage: (equipeId: string, id: string) =>
     requete<void>(`/equipes/${equipeId}/personnages/${id}`, { method: "DELETE" }),
+  renommerPersonnage: (equipeId: string, id: string, pseudo: string) =>
+    requete<Personnage>(`/equipes/${equipeId}/personnages/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ pseudo }),
+    }),
   acheterObjet: (equipeId: string, personnageId: string, objetId: string, emplacement: string) =>
     requete<InventaireItem>(`/equipes/${equipeId}/personnages/${personnageId}/acheter`, {
       method: "POST",

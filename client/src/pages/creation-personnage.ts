@@ -7,14 +7,6 @@ import { jouerTransitionRace } from "../components/transition-race";
 import { naviguer } from "../router";
 import { state } from "../state";
 
-/**
- * Cadre de portrait par race. L'Humain garde un anneau bronze généré en CSS (lisse, comme
- * demandé). Les 4 autres utilisent de vraies illustrations de cadre (docs/img/cadre/, détourées
- * et converties en WebP transparent par client/scripts/detourer-cadres.mjs), superposées au
- * portrait plutôt qu'une texture CSS — bien plus fidèle aux références fournies.
- */
-const RACES_AVEC_IMAGE_CADRE = new Set(["nain", "elfe", "mage", "demi-orc"]);
-
 export async function renderCreationPersonnage(app: HTMLElement) {
   const equipeId = state.equipeId;
   if (!equipeId) return naviguer("/accueil");
@@ -73,18 +65,17 @@ export async function renderCreationPersonnage(app: HTMLElement) {
   conteneurEtoile.innerHTML =
     genererEtoileLiens(angles) +
     races
-      .map((r) => {
-        const avecImageCadre = RACES_AVEC_IMAGE_CADRE.has(r.id);
-        return `
+      .map(
+        (r) => `
       <button type="button" class="point-race" data-id="${r.id}" style="--angle:${ANGLES_RACES[r.id] ?? 0}deg">
-        <span class="cadre-race-etoile ${avecImageCadre ? "cadre--image" : "cadre--bronze"}">
-          <img class="${avecImageCadre ? "portrait-dans-cadre" : ""}" src="/img/races/${r.id}.webp" alt="Portrait ${r.nom}" loading="lazy" />
-          ${avecImageCadre ? `<img class="image-cadre" src="/img/cadres/${r.id}.webp" alt="" loading="lazy" />` : ""}
+        <span class="cadre-race-etoile cadre--image">
+          <img class="portrait-dans-cadre" src="/img/races/${r.id}.webp" alt="Portrait ${r.nom}" loading="lazy" />
+          <img class="image-cadre" src="/img/cadres/${r.id}.webp" alt="" loading="lazy" />
         </span>
         <span class="nom-race-etoile">${r.nom}</span>
       </button>
-    `;
-      })
+    `
+      )
       .join("");
 
   // Rotation cumulée réelle (pas mod 360) pour permettre à la roue de tourner dans le sens le
