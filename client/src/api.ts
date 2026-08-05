@@ -98,6 +98,9 @@ export type Personnage = {
   sagesse: number;
   chance: number;
   perception: number;
+  niveau: number;
+  xp: number;
+  pointsCompetenceNonAlloues: number;
   race: Race;
   classe: Classe;
   specialisation: Specialisation | null;
@@ -127,8 +130,9 @@ export type Equipe = {
   id: string;
   nom: string;
   orRestant: number;
+  aventureCommencee: boolean;
   personnages: Personnage[];
-  compagnonEquipe: { compagnon: Compagnon } | null;
+  compagnonEquipe: { compagnon: Compagnon; pseudo: string | null } | null;
 };
 
 // ---------- Catalogue ----------
@@ -146,6 +150,7 @@ export const api = {
   creerEquipe: (nom: string) => requete<Equipe>("/equipes", { method: "POST", body: JSON.stringify({ nom }) }),
   obtenirEquipe: (id: string) => requete<Equipe>(`/equipes/${id}`),
   supprimerEquipe: (id: string) => requete<void>(`/equipes/${id}`, { method: "DELETE" }),
+  demarrerAventureEquipe: (id: string) => requete<Equipe>(`/equipes/${id}/demarrer-aventure`, { method: "POST" }),
 
   // ---------- Personnages ----------
   creerPersonnage: (equipeId: string, data: { pseudo: string; raceId: string; classeId: string }) =>
@@ -180,4 +185,9 @@ export const api = {
     }),
   retirerCompagnon: (equipeId: string) =>
     requete<void>(`/equipes/${equipeId}/compagnon`, { method: "DELETE" }),
+  renommerCompagnon: (equipeId: string, pseudo: string) =>
+    requete<unknown>(`/equipes/${equipeId}/compagnon`, {
+      method: "PATCH",
+      body: JSON.stringify({ pseudo }),
+    }),
 };

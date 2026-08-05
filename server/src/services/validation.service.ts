@@ -32,6 +32,18 @@ export async function validerRaceClasse(raceId: string, classeId: string) {
   return { deconseille: lien.deconseille };
 }
 
+/**
+ * Vérifie que l'équipe n'a pas encore lancé son aventure — une fois `aventureCommencee` passé à
+ * true (bouton "Jouer" validé), l'équipe est verrouillée définitivement : plus de création/
+ * suppression de personnage, plus de changement de compagnon, plus d'achat/retrait en boutique.
+ */
+export async function validerEquipeModifiable(equipeId: string) {
+  const equipe = await prisma.equipe.findUniqueOrThrow({ where: { id: equipeId } });
+  if (equipe.aventureCommencee) {
+    throw new ErreurValidation("L'aventure a déjà commencé : cette équipe ne peut plus être modifiée.");
+  }
+}
+
 /** Vérifie que la taille actuelle de l'équipe permet d'ajouter un personnage (max 4). */
 export async function validerTailleEquipe(equipeId: string) {
   const nb = await prisma.personnage.count({ where: { equipeId } });

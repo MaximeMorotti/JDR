@@ -54,3 +54,15 @@ equipeRouter.delete("/:id", async (req, res) => {
   await prisma.equipe.delete({ where: { id: req.params.id } });
   res.status(204).send();
 });
+
+/**
+ * POST /api/equipes/:id/demarrer-aventure
+ * Verrouille définitivement l'équipe (validation du récap "Jouer" côté client) — idempotent.
+ */
+equipeRouter.post("/:id/demarrer-aventure", async (req, res) => {
+  const equipe = await prisma.equipe.update({
+    where: { id: req.params.id },
+    data: { aventureCommencee: true },
+  });
+  res.json(equipe);
+});

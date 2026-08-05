@@ -1,15 +1,17 @@
 import { api, type Equipe, type Personnage } from "../api";
-import { confirmerSuppression } from "./confirmation";
+import { naviguer } from "../router";
 import { genererRadarSVG } from "./radar-stats";
 
 /**
  * Fiche détaillée d'un personnage, en popup (remplace la navigation directe vers la boutique au
  * clic sur une carte de la page équipe). Bandeau portrait 2:1 en haut, description race/classe,
- * radar de stats, renommage inline, suppression — et navigation d'une fiche à l'autre via des
- * flèches, comme un slider de cartes. La suppression d'un personnage n'est désormais possible que
- * depuis ici (retirée de la carte bannière de la page équipe).
+ * radar de stats, renommage inline — et navigation d'une fiche à l'autre via des flèches, comme un
+ * slider de cartes. Plus de suppression depuis ici : remplacée par un accès à l'arbre de
+ * compétences (bouton "Compétence"), la suppression de personnage n'étant plus jugée nécessaire
+ * une fois ce système en place. `verrouille` (équipe partie à l'aventure) désactive en plus le
+ * renommage — la fiche devient alors purement consultative.
  */
-export function ouvrirFichePersonnage(equipe: Equipe, indexDepart: number, onFerme: () => void) {
+export function ouvrirFichePersonnage(equipe: Equipe, indexDepart: number, verrouille: boolean, onFerme: () => void) {
   let liste = [...equipe.personnages];
   let index = indexDepart;
 
@@ -49,7 +51,7 @@ export function ouvrirFichePersonnage(equipe: Equipe, indexDepart: number, onFer
           <img class="fiche-perso-banniere" src="/img/equipe-portraits/${p.raceId}.webp" alt="${p.pseudo}" />
 
           <div class="fiche-perso-corps">
-            <input class="fiche-perso-nom" id="fiche-perso-nom" value="${p.pseudo}" maxlength="40" spellcheck="false" />
+            <input class="fiche-perso-nom" id="fiche-perso-nom" value="${p.pseudo}" maxlength="40" spellcheck="false" ${verrouille ? "disabled" : ""} />
             <div class="fiche-perso-sous-titre">${p.race.nom} · ${p.classe.nom}</div>
             <p class="fiche-perso-lore">${p.race.lore}</p>
 
@@ -66,7 +68,7 @@ export function ouvrirFichePersonnage(equipe: Equipe, indexDepart: number, onFer
 
             <div id="erreur-fiche-perso"></div>
             <div class="fiche-perso-actions">
-              <button class="btn btn--danger" data-supprimer>SUPPRIMER</button>
+              <button class="btn btn--primaire" data-competence>Compétence</button>
             </div>
           </div>
         </div>
@@ -76,41 +78,35 @@ export function ouvrirFichePersonnage(equipe: Equipe, indexDepart: number, onFer
     const inputNom = overlay.querySelector<HTMLInputElement>("#fiche-perso-nom")!;
     const zoneErreur = overlay.querySelector<HTMLElement>("#erreur-fiche-perso")!;
 
-    async function sauverNom() {
-      const valeur = inputNom.value.trim();
-      if (!valeur || valeur === p.pseudo) {
-        inputNom.value = p.pseudo;
-        return;
-      }
-      try {
-        await api.renommerPersonnage(equipe.id, p.id, valeur);
-        p.pseudo = valeur;
-        zoneErreur.innerHTML = "";
-      } catch (e) {
-        inputNom.value = p.pseudo;
-        zoneErreur.innerHTML = `<div class="erreur">${(e as Error).message}</div>`;
-      }
+    if (!verrouille) {
+      const sauverNom = async () => {
+        const valeur = inputNom.value.trim();
+        if (!valeur || valeur === p.pseudo) {
+          inputNom.value = p.pseudo;
+          return;
+        }
+        try {
+          await api.renommerPersonnage(equipe.id, p.id, valeur);
+          p.pseudo = valeur;
+          zoneErreur.innerHTML = "";
+        } catch (e) {
+          inputNom.value = p.pseudo;
+          zoneErreur.innerHTML = `<div class="erreur">${(e as Error).message}</div>`;
+        }
+      };
+      inputNom.addEventListener("blur", sauverNom);
+      inputNom.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") inputNom.blur();
+      });
     }
-    inputNom.addEventListener("blur", sauverNom);
-    inputNom.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") inputNom.blur();
-    });
 
     overlay.querySelector("[data-fermer]")!.addEventListener("click", fermer);
     overlay.querySelector("[data-prec]")?.addEventListener("click", () => allerA(index - 1));
     overlay.querySelector("[data-suiv]")?.addEventListener("click", () => allerA(index + 1));
 
-    overlay.querySelector("[data-supprimer]")!.addEventListener("click", async () => {
-      const ok = await confirmerSuppression(`Supprimer ${p.pseudo} ? Cette action est irréversible.`);
-      if (!ok) return;
-      await api.supprimerPersonnage(equipe.id, p.id);
-      liste = liste.filter((x) => x.id !== p.id);
-      if (liste.length === 0) {
-        fermer();
-        return;
-      }
-      if (index >= liste.length) index = liste.length - 1;
-      rendre();
+    overlay.querySelector("[data-competence]")!.addEventListener("click", () => {
+      fermer();
+      naviguer(`/competences/${p.id}`);
     });
   }
 

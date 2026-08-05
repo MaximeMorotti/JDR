@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../db";
-import { ErreurValidation, validerCompagnon } from "../services/validation.service";
+import { ErreurValidation, validerCompagnon, validerEquipeModifiable } from "../services/validation.service";
 
 export const compagnonRouter = Router({ mergeParams: true });
 
@@ -42,6 +42,7 @@ compagnonRouter.post("/compagnon", async (req, res) => {
   }
 
   try {
+    await validerEquipeModifiable(equipeId);
     await validerCompagnon(equipeId, parsed.data.compagnonId);
     const compagnonEquipe = await prisma.compagnonEquipe.create({
       data: { equipeId, compagnonId: parsed.data.compagnonId },
@@ -59,6 +60,44 @@ compagnonRouter.post("/compagnon", async (req, res) => {
 /** DELETE /api/equipes/:equipeId/compagnon — retire le compagnon de l'équipe. */
 compagnonRouter.delete("/compagnon", async (req, res) => {
   const { equipeId } = req.params as { equipeId: string };
-  await prisma.compagnonEquipe.delete({ where: { equipeId } });
-  res.status(204).send();
+  try {
+    await validerEquipeModifiable(equipeId);
+    await prisma.compagnonEquipe.delete({ where: { equipeId } });
+    res.status(204).send();
+  } catch (e) {
+    if (e instanceof ErreurValidation) {
+      return res.status(400).json({ erreur: e.message });
+    }
+    throw e;
+  }
+});
+
+const renommerCompagnonSchema = z.object({
+  pseudo: z.string().trim().min(1, "Le pseudo est requis.").max(40),
+});
+
+/** PATCH /api/equipes/:equipeId/compagnon — donne un pseudo au compagnon de l'équipe. */
+compagnonRouter.patch("/compagnon", async (req, res) => {
+  const { equipeId } = req.params as { equipeId: string };
+  const parsed = renommerCompagnonSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ erreur: parsed.error.issues[0]?.message });
+  }
+  try {
+    await validerEquipeModifiable(equipeId);
+    const compagnonEquipe = await prisma.compagnonEquipe.update({
+      where: { equipeId },
+      data: { pseudo: parsed.data.pseudo },
+      include: { compagnon: true },
+    });
+    res.json(compagnonEquipe);
+  } catch (e) {
+    if (e instanceof ErreurValidation) {
+      return res.status(400).json({ erreur: e.message });
+    }
+    if (e instanceof Error && "code" in e && (e as { code?: string }).code === "P2025") {
+      return res.status(404).json({ erreur: "Aucun compagnon choisi pour cette équipe." });
+    }
+    throw e;
+  }
 });

@@ -1,6 +1,7 @@
 import { api, type Equipe } from "../api";
 import { confirmerSuppression } from "../components/confirmation";
 import { ouvrirFichePersonnage } from "../components/fiche-personnage";
+import { demarrerAventure } from "../components/lancement-aventure";
 import { naviguer } from "../router";
 import { state } from "../state";
 
@@ -99,6 +100,16 @@ export async function renderEquipe(app: HTMLElement) {
   }
 
   function afficher(equipe: Equipe) {
+    // Une fois l'aventure lancée, l'équipe est verrouillée définitivement (cf. schema.prisma —
+    // Equipe.aventureCommencee) : plus de création/suppression de personnage, plus de changement
+    // de compagnon, plus d'accès à la boutique.
+    const verrouille = equipe.aventureCommencee;
+    // La boutique n'existe que dans un village — pas encore de vraie carte/localisation (Sprint 2+),
+    // donc pour l'instant on approxime : équipe pas encore partie à l'aventure = toujours au
+    // village. Variable dédiée pour brancher un vrai état de localisation plus tard sans toucher au
+    // reste de la page.
+    const enVillage = !verrouille;
+
     const emplacementsVides = 4 - equipe.personnages.length;
     const capaciteCompagnon = equipe.compagnonEquipe
       ? (CAPACITE_BASE_COMPAGNON[equipe.compagnonEquipe.compagnon.id] ?? 0)
@@ -128,9 +139,29 @@ export async function renderEquipe(app: HTMLElement) {
         </div>
       </div>
 
-      <button class="btn btn--primaire bouton-boutique-flottant" id="btn-boutique" ${equipe.personnages.length === 0 ? "disabled" : ""}>
-        🛒 Boutique
-      </button>
+      ${
+        verrouille
+          ? ""
+          : `<div class="rangee-lancement-aventure">
+              <button class="bouton-lancer-aventure" id="btn-lancer-aventure" ${equipe.personnages.length === 0 ? "disabled" : ""}>
+                Lancer l'aventure
+              </button>
+            </div>`
+      }
+
+      ${
+        enVillage
+          ? `<button class="btn btn--primaire bouton-boutique-flottant" id="btn-boutique" ${equipe.personnages.length === 0 ? "disabled" : ""}>
+              🛒 Boutique
+            </button>`
+          : ""
+      }
+
+      ${
+        verrouille
+          ? `<button class="btn btn--primaire bouton-boutique-flottant" id="btn-retour-jeu">↩ Retour au jeu</button>`
+          : ""
+      }
     `;
 
     const grilleInventaire = app.querySelector<HTMLElement>("#grille-inventaire")!;
@@ -171,18 +202,17 @@ export async function renderEquipe(app: HTMLElement) {
     `;
         })
         .join("") +
-      (emplacementsVides > 0
+      (emplacementsVides > 0 && !verrouille
         ? `<div class="slot-vide slot-vide--banniere" id="ajouter-perso">+</div>`
         : "");
 
-    // Le clic sur une carte ouvre la fiche détaillée du personnage (portrait, stats, renommage) —
-    // c'est désormais SEULEMENT depuis cette fiche qu'on peut le supprimer (plus de croix sur la
-    // carte elle-même). La boutique reste accessible via le bouton flottant en bas de page.
+    // Le clic sur une carte ouvre la fiche détaillée du personnage (portrait, stats, arbre de
+    // compétences) — verrouillée en lecture seule (pas de renommage) une fois l'aventure lancée.
     grillePersonnages.querySelectorAll<HTMLElement>("[data-perso]").forEach((carte) => {
       carte.addEventListener("click", () => {
         const index = equipe.personnages.findIndex((p) => p.id === carte.dataset["perso"]);
         if (index === -1) return;
-        ouvrirFichePersonnage(equipe, index, () => charger());
+        ouvrirFichePersonnage(equipe, index, verrouille, () => charger());
       });
     });
     app.querySelector("#ajouter-perso")?.addEventListener("click", () => naviguer("/creation"));
@@ -190,36 +220,48 @@ export async function renderEquipe(app: HTMLElement) {
     const grilleCompagnon = app.querySelector<HTMLElement>("#grille-compagnon")!;
     if (equipe.compagnonEquipe) {
       const c = equipe.compagnonEquipe.compagnon;
+      const pseudo = equipe.compagnonEquipe.pseudo;
       grilleCompagnon.innerHTML = `
         <div class="carte-slot-perso carte-slot-perso--compagnon" data-compagnon>
-          <button class="bouton-croix btn-supprimer-slot" data-supprimer-compagnon title="Retirer ${c.nom}">✕</button>
-          <img class="portrait-slot" src="/img/compagnons/${c.id}.webp" alt="${c.nom}" loading="lazy" />
+          ${verrouille ? "" : `<button class="bouton-croix btn-supprimer-slot" data-supprimer-compagnon title="Retirer ${c.nom}">✕</button>`}
+          <img class="portrait-slot" src="/img/compagnons/${c.id}.webp" alt="${pseudo ?? c.nom}" loading="lazy" />
           <div class="etiquette-slot">
-            <h3>${c.nom}</h3>
-            <div class="sous-titre-slot">${c.role}</div>
+            <h3>${pseudo ?? c.nom}</h3>
+            <div class="sous-titre-slot">${pseudo ? c.nom : c.role}</div>
           </div>
         </div>
       `;
-      grilleCompagnon.querySelector("[data-compagnon]")!.addEventListener("click", (e) => {
-        if ((e.target as HTMLElement).closest("[data-supprimer-compagnon]")) return;
-        naviguer("/compagnon");
-      });
-      grilleCompagnon.querySelector("[data-supprimer-compagnon]")!.addEventListener("click", async (e) => {
-        e.stopPropagation();
-        const ok = await confirmerSuppression(`Retirer ${c.nom} de l'équipe ?`);
-        if (!ok) return;
-        await api.retirerCompagnon(equipeId!);
-        await charger();
-      });
+      if (!verrouille) {
+        grilleCompagnon.querySelector("[data-compagnon]")!.addEventListener("click", (e) => {
+          if ((e.target as HTMLElement).closest("[data-supprimer-compagnon]")) return;
+          naviguer("/compagnon");
+        });
+        grilleCompagnon.querySelector("[data-supprimer-compagnon]")!.addEventListener("click", async (e) => {
+          e.stopPropagation();
+          const ok = await confirmerSuppression(`Retirer ${c.nom} de l'équipe ?`);
+          if (!ok) return;
+          await api.retirerCompagnon(equipeId!);
+          await charger();
+        });
+      }
+    } else if (verrouille) {
+      grilleCompagnon.innerHTML = `<div class="slot-vide slot-vide--compagnon slot-vide--desactive">Aucun</div>`;
     } else {
       grilleCompagnon.innerHTML = `<div class="slot-vide slot-vide--compagnon" id="ajouter-compagnon">+</div>`;
       app.querySelector("#ajouter-compagnon")!.addEventListener("click", () => naviguer("/compagnon"));
     }
 
-    app.querySelector<HTMLButtonElement>("#btn-boutique")!.addEventListener("click", () => {
+    app.querySelector<HTMLButtonElement>("#btn-boutique")?.addEventListener("click", () => {
       if (equipe.personnages.length === 0) return;
       naviguer(`/equipement/${equipe.personnages[0]!.id}`);
     });
+
+    app.querySelector<HTMLButtonElement>("#btn-lancer-aventure")?.addEventListener("click", () => {
+      if (equipe.personnages.length === 0) return;
+      demarrerAventure(equipe);
+    });
+
+    app.querySelector<HTMLButtonElement>("#btn-retour-jeu")?.addEventListener("click", () => naviguer("/aventure"));
   }
 
   await charger();

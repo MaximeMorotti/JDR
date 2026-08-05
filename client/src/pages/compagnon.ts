@@ -24,10 +24,15 @@ export async function renderCompagnon(app: HTMLElement) {
       api.obtenirEquipe(equipeId!),
       api.compagnonsDisponibles(equipeId!),
     ]);
-    afficher(equipe.nom, equipe.compagnonEquipe?.compagnon.id ?? null, compagnons);
+    afficher(equipe.nom, equipe.compagnonEquipe, compagnons);
   }
 
-  function afficher(nomEquipe: string, choisiId: string | null, compagnons: Awaited<ReturnType<typeof api.compagnonsDisponibles>>) {
+  function afficher(
+    nomEquipe: string,
+    compagnonEquipe: { compagnon: { id: string }; pseudo: string | null } | null,
+    compagnons: Awaited<ReturnType<typeof api.compagnonsDisponibles>>,
+  ) {
+    const choisiId = compagnonEquipe?.compagnon.id ?? null;
     app.innerHTML = `
       <div class="entete"><h1>${nomEquipe}</h1></div>
       <p>Un seul compagnon par équipe. Les chiens et la Mule sont accessibles à toute équipe ; les autres nécessitent une classe ou une race précise dans l'équipe.</p>
@@ -53,7 +58,12 @@ export async function renderCompagnon(app: HTMLElement) {
         return `
         <div class="carte-compagnon ${!c.accessible ? "inaccessible" : ""} ${estChoisi ? "choisi" : ""}">
           <img class="portrait-compagnon" src="/img/compagnons/${c.id}.webp" alt="Portrait ${c.nom}" loading="lazy" />
-          <h3>${c.nom}</h3>
+          ${
+            estChoisi
+              ? `<input class="nom-compagnon" data-nom-compagnon value="${compagnonEquipe?.pseudo ?? ""}" placeholder="${c.nom}" maxlength="40" spellcheck="false" />
+                 <div style="font-size:0.8rem;color:var(--text-dim);margin-top:-4px">${c.nom}</div>`
+              : `<h3>${c.nom}</h3>`
+          }
           <div style="font-size:0.85rem;color:var(--text-dim)">${c.role}</div>
           <div class="radar-compagnon">${genererRadarSVG({ pv: c.pv, force: c.force, dexterite: c.dexterite, vitalite: c.vitalite }, AXES_COMPAGNON, echelle)}</div>
           <p style="font-size:0.8rem;margin-top:8px">${c.capaciteTransport}</p>
@@ -86,6 +96,24 @@ export async function renderCompagnon(app: HTMLElement) {
         await api.retirerCompagnon(equipeId!);
         await charger();
       });
+    });
+
+    const inputNom = grille.querySelector<HTMLInputElement>("[data-nom-compagnon]");
+    inputNom?.addEventListener("blur", async () => {
+      const valeur = inputNom.value.trim();
+      if (!valeur || valeur === compagnonEquipe?.pseudo) {
+        inputNom.value = compagnonEquipe?.pseudo ?? "";
+        return;
+      }
+      try {
+        await api.renommerCompagnon(equipeId!, valeur);
+        await charger();
+      } catch (e) {
+        zoneErreur.innerHTML = `<div class="erreur">${(e as Error).message}</div>`;
+      }
+    });
+    inputNom?.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") inputNom.blur();
     });
 
     app.querySelector("#btn-retour")!.addEventListener("click", () => naviguer("/equipe"));

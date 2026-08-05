@@ -44,15 +44,19 @@ const LABEL_SLOT: Record<string, string> = {
  * flotte dans le dos, visible sur les côtés dès ce calque bas) et `cape-front` (le fermoir au col,
  * qui doit rester visible PAR-DESSUS le torse — placé en dernier, donc au-dessus de tout, comme
  * demandé explicitement).
+ *
+ * `demiTransparent` : Cape (les 2 calques) et Projectile restent à 50% d'opacité en permanence
+ * (demandé explicitement) — elles dominaient trop visuellement le mannequin par rapport aux autres
+ * pièces, même quand l'emplacement n'est pas équipé.
  */
-const PARTIES_MANNEQUIN: { slot: string; src: string; ox: number; oy: number }[] = [
-  { slot: "CAPE", src: "cape-back", ox: 50.1, oy: 60.7 },
+const PARTIES_MANNEQUIN: { slot: string; src: string; ox: number; oy: number; demiTransparent?: boolean }[] = [
+  { slot: "CAPE", src: "cape-back", ox: 50.1, oy: 60.7, demiTransparent: true },
   { slot: "TORSE", src: "torse", ox: 49.9, oy: 31.4 },
   { slot: "BRAS", src: "bras", ox: 50.1, oy: 36.5 },
   { slot: "BAS", src: "bas", ox: 50.0, oy: 66.1 },
   { slot: "PIED", src: "pied", ox: 50.0, oy: 89.6 },
   { slot: "CEINTURE", src: "ceinture", ox: 49.9, oy: 44.4 },
-  { slot: "CARQUOIS", src: "carquois", ox: 37.2, oy: 13.6 },
+  { slot: "CARQUOIS", src: "carquois", ox: 37.2, oy: 13.6, demiTransparent: true },
   { slot: "TETE", src: "tete", ox: 50.0, oy: 10.8 },
   { slot: "COLLIER", src: "collier", ox: 50.0, oy: 18.4 },
   { slot: "BRACELET_1", src: "bracelet-1", ox: 70.4, oy: 45.1 },
@@ -63,8 +67,23 @@ const PARTIES_MANNEQUIN: { slot: string; src: string; ox: number; oy: number }[]
   { slot: "MAIN_GAUCHE", src: "arme-1", ox: 73.8, oy: 49.6 },
   { slot: "ANNEAU_1", src: "anneau-1", ox: 75.9, oy: 50.3 },
   { slot: "ANNEAU_2", src: "anneau-2", ox: 24.1, oy: 50.2 },
-  { slot: "CAPE", src: "cape-front", ox: 49.8, oy: 22.5 },
+  { slot: "CAPE", src: "cape-front", ox: 49.8, oy: 22.5, demiTransparent: true },
 ];
+
+/**
+ * Catégories d'armes à deux mains — occuper MAIN_DROITE avec l'une d'elles rend MAIN_GAUCHE
+ * indisponible (on ne peut pas tenir un bouclier/grimoire en plus d'un arc ou d'une arme lourde).
+ * Pas sourcé dans le Codex (aucune règle écrite dessus) — décision explicite de l'utilisateur,
+ * cf. `CLAUDE.md`.
+ *
+ * EXCEPTION : le Berserker (Demi-Orc) est exempté de cette règle — son attaque signature
+ * "Fracassement" (Codex des Classes, spécialisation Brise-crâne) tient explicitement "ses deux
+ * armes en même temps", donc deux armes lourdes à la fois (une par main) plutôt qu'une seule à
+ * deux mains. Sans cette exception, un Berserker ne pourrait jamais équiper la classe pour son
+ * propre gameplay signature.
+ */
+const CATEGORIES_DEUX_MAINS = ["ARME_LOURDE", "ARME_DISTANCE"];
+const CLASSE_EXCEPTION_DEUX_MAINS = "berserker";
 
 const TOUS_LES_SLOTS = Object.keys(LABEL_SLOT);
 
@@ -101,10 +120,26 @@ export async function renderEquipement(app: HTMLElement, params: { personnageId:
   function afficher(nomEquipe: string, orRestant: number, tousPersonnages: Personnage[], personnage: Personnage, boutique: Objet[]) {
     const slotsOccupes = new Set(personnage.inventaire.map((i) => i.emplacement));
 
+    // Arc ou arme lourde en MAIN_DROITE = les deux mains sont prises, MAIN_GAUCHE devient
+    // indisponible (pas de bouclier/grimoire en plus) — décision utilisateur, cf. CLAUDE.md.
+    // Sauf Berserker (cf. CLAUDE_EXCEPTION_DEUX_MAINS ci-dessus) : dual-wield d'armes lourdes.
+    const armeMainDroite = personnage.inventaire.find((i) => i.emplacement === "MAIN_DROITE");
+    const mainGaucheBloquee =
+      personnage.classeId !== CLASSE_EXCEPTION_DEUX_MAINS &&
+      !!armeMainDroite &&
+      CATEGORIES_DEUX_MAINS.includes(armeMainDroite.objet.categorie);
+
+    // Tous les objets de la boutique restent VISIBLES quelle que soit la classe du personnage
+    // affiché — un objet qu'il ne peut pas équiper est grisé (bouton désactivé + raison), jamais
+    // caché (bug constaté : "il n'y a pas toutes les armes nécessaires dans le shop" — l'Arc court
+    // de chasse et consorts étaient bel et bien dans le catalogue, seulement filtrés hors de la
+    // liste pour toute classe autre que Chasseur sylvestre). Mêmes règles que le serveur
+    // (`validerEquipement`) : armure/accessoire toujours compatibles côté classe, tout le reste
+    // (armes, instruments, outils, boucliers) doit figurer dans `categoriesArmesAutorisees`.
     const categoriesAutorisees = new Set(personnage.classe.categoriesArmesAutorisees.map((c) => c.categorie));
-    const objetsFiltres = boutique.filter(
-      (o) => o.type === "ACCESSOIRE" || o.type === "ARMURE" || o.type === "BOUCLIER" || categoriesAutorisees.has(o.categorie)
-    );
+    function estCompatibleClasse(o: Objet): boolean {
+      return o.type === "ACCESSOIRE" || o.type === "ARMURE" || categoriesAutorisees.has(o.categorie);
+    }
 
     app.innerHTML = `
       <div class="entete">
@@ -171,18 +206,23 @@ export async function renderEquipement(app: HTMLElement, params: { personnageId:
     const zoneImage = app.querySelector<HTMLElement>("#zone-image-mannequin")!;
     zoneImage.innerHTML += PARTIES_MANNEQUIN.map((p) => {
       const equipe = personnage.inventaire.some((i) => i.emplacement === p.slot);
-      return `<img class="partie-mannequin ${equipe ? "equipe" : ""}" data-slot="${p.slot}" src="/img/boutique/${p.src}.webp" alt="" style="transform-origin:${p.ox}% ${p.oy}%" />`;
+      const bloque = p.slot === "MAIN_GAUCHE" && mainGaucheBloquee;
+      const classes = ["partie-mannequin", equipe && "equipe", bloque && "bloque", p.demiTransparent && "demi-transparent"]
+        .filter(Boolean)
+        .join(" ");
+      return `<img class="${classes}" data-slot="${p.slot}" src="/img/boutique/${p.src}.webp" alt="" style="transform-origin:${p.ox}% ${p.oy}%" />`;
     }).join("");
 
     const listeCompacte = app.querySelector<HTMLElement>("#liste-equipement-compacte")!;
     listeCompacte.innerHTML = TOUS_LES_SLOTS.map((slot) => {
       const item = personnage.inventaire.find((i) => i.emplacement === slot);
       const retirable = item && (item.prixPaye > 0 || !CLASSES_MAGE.includes(personnage.classeId) || item.objet.origine !== "SPAWN_GRATUIT");
+      const bloque = slot === "MAIN_GAUCHE" && mainGaucheBloquee && !item;
       return `
         <div class="ligne-equipement-compacte ${item ? "occupe" : ""}" data-slot-survol="${slot}">
           <div class="entete-ligne-compacte">
             <span class="nom-slot">${LABEL_SLOT[slot]}</span>
-            <span class="contenu-slot">${item ? item.objet.nom : "—"}</span>
+            <span class="contenu-slot">${item ? item.objet.nom : bloque ? "Bloqué (arme à 2 mains)" : "—"}</span>
             ${item && retirable ? `<button class="bouton-croix" data-retirer="${item.id}" title="Retirer">✕</button>` : ""}
           </div>
           ${
@@ -231,14 +271,32 @@ export async function renderEquipement(app: HTMLElement, params: { personnageId:
     selectFiltre.value = filtreActuel;
 
     function rendreObjets() {
-      const objets = filtreActuel === "TOUS" ? objetsFiltres : objetsFiltres.filter((o) => o.type === filtreActuel);
+      const objets = filtreActuel === "TOUS" ? boutique : boutique.filter((o) => o.type === filtreActuel);
 
       zoneObjets.innerHTML = objets
         .map((o) => {
+          const compatible = estCompatibleClasse(o);
+          // Un arc/une arme lourde prend les deux mains : bloqué si MAIN_GAUCHE est déjà occupée,
+          // et inversement un objet de MAIN_GAUCHE est bloqué si un arc/une arme lourde tient déjà
+          // MAIN_DROITE — même règle dans les deux sens (cf. CATEGORIES_DEUX_MAINS plus haut), sauf
+          // Berserker (dual-wield, exempté dans les deux sens lui aussi).
+          const bloqueDeuxMains =
+            personnage.classeId !== CLASSE_EXCEPTION_DEUX_MAINS &&
+            ((o.emplacement === "MAIN_GAUCHE" && mainGaucheBloquee) ||
+              (CATEGORIES_DEUX_MAINS.includes(o.categorie) && slotsOccupes.has("MAIN_GAUCHE")));
           const slotsPossibles = FAMILLES[o.emplacement ?? ""] ?? (o.emplacement ? [o.emplacement] : []);
           const slotLibre = slotsPossibles.find((s) => !slotsOccupes.has(s));
+          const libelleBouton = !compatible
+            ? "Incompatible avec cette classe"
+            : bloqueDeuxMains
+              ? "Nécessite les deux mains libres"
+              : !slotLibre
+                ? "Emplacement occupé"
+                : orRestant < (o.prix ?? 0)
+                  ? "Budget insuffisant"
+                  : "Acheter";
           return `
-          <div class="carte-objet" data-slot-cible="${slotLibre ?? slotsPossibles[0] ?? ""}">
+          <div class="carte-objet ${compatible && !bloqueDeuxMains ? "" : "incompatible"}" data-slot-cible="${slotLibre ?? slotsPossibles[0] ?? ""}">
             <div class="corps-carte-objet">
               <div class="nom">${o.nom} <span class="prix">${o.prix} po</span></div>
               <div class="desc">${o.description}</div>
@@ -246,8 +304,8 @@ export async function renderEquipement(app: HTMLElement, params: { personnageId:
               ${o.defense ? `<span class="stat-obj">Défense ${o.defense}</span>` : ""}
               ${o.effet ? `<span class="stat-obj">${o.effet}</span>` : ""}
             </div>
-            <button class="btn" data-acheter="${o.id}" data-slot="${slotLibre ?? ""}" ${!slotLibre || orRestant < (o.prix ?? 0) ? "disabled" : ""}>
-              ${!slotLibre ? "Emplacement occupé" : orRestant < (o.prix ?? 0) ? "Budget insuffisant" : "Acheter"}
+            <button class="btn" data-acheter="${o.id}" data-slot="${slotLibre ?? ""}" ${!compatible || bloqueDeuxMains || !slotLibre || orRestant < (o.prix ?? 0) ? "disabled" : ""}>
+              ${libelleBouton}
             </button>
           </div>
         `;

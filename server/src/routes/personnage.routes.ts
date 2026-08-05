@@ -5,6 +5,7 @@ import {
   ErreurValidation,
   validerBudget,
   validerEquipement,
+  validerEquipeModifiable,
   validerRaceClasse,
   validerTailleEquipe,
 } from "../services/validation.service";
@@ -45,6 +46,18 @@ const FAMILLES_MULTI_SLOTS: Record<string, readonly string[]> = {
   BRACELET: ["BRACELET_1", "BRACELET_2"],
 };
 
+/**
+ * Catégories d'armes tenues à deux mains — en équiper une en MAIN_DROITE rend MAIN_GAUCHE
+ * indisponible (pas de bouclier/grimoire en plus d'un arc ou d'une arme lourde), et inversement.
+ * Pas sourcé dans le Codex (aucune règle écrite dessus) — décision explicite de l'utilisateur,
+ * voir CLAUDE.md. Dupliqué côté client (`equipement.ts`) pour l'affichage ; la règle qui compte
+ * (empêcher réellement l'achat) est celle-ci, côté serveur.
+ *
+ * EXCEPTION : le Berserker (Demi-Orc) est exempté de cette règle (voir plus bas où elle est
+ * appliquée) — son attaque signature "Fracassement" tient deux armes lourdes en même temps.
+ */
+const CATEGORIES_DEUX_MAINS = ["ARME_LOURDE", "ARME_DISTANCE"];
+
 /** Les 3 classes de Mage (cf. écart documenté dans CLAUDE.md : le Codex modélise "le Mage" comme
  * 1 classe à 3 écoles choisies à la création, implémenté ici comme 3 classes indépendantes). */
 const CLASSES_MAGE = ["mage-elementaire", "mage-noir", "mage-blanc"];
@@ -83,6 +96,7 @@ personnageRouter.post("/", async (req, res) => {
   const { pseudo, raceId, classeId } = parsed.data;
 
   try {
+    await validerEquipeModifiable(equipeId);
     await validerTailleEquipe(equipeId);
     const { deconseille } = await validerRaceClasse(raceId, classeId);
 
@@ -160,17 +174,22 @@ const modifierPersonnageSchema = z.object({
 
 /** PATCH /api/equipes/:equipeId/personnages/:id — modifier le pseudo ou la spécialisation. */
 personnageRouter.patch("/:id", async (req, res) => {
+  const { equipeId } = req.params as { equipeId: string; id: string };
   const parsed = modifierPersonnageSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ erreur: parsed.error.issues[0]?.message });
   }
   try {
+    await validerEquipeModifiable(equipeId);
     const personnage = await prisma.personnage.update({
       where: { id: req.params.id },
       data: parsed.data,
     });
     res.json(personnage);
   } catch (e) {
+    if (e instanceof ErreurValidation) {
+      return res.status(400).json({ erreur: e.message });
+    }
     if (e instanceof Error && "code" in e && (e as { code?: string }).code === "P2002") {
       return res.status(409).json({ erreur: "Ce pseudo est déjà utilisé dans cette équipe." });
     }
@@ -180,8 +199,17 @@ personnageRouter.patch("/:id", async (req, res) => {
 
 /** DELETE /api/equipes/:equipeId/personnages/:id — supprime un personnage (cascade sur l'inventaire). */
 personnageRouter.delete("/:id", async (req, res) => {
-  await prisma.personnage.delete({ where: { id: req.params.id } });
-  res.status(204).send();
+  const { equipeId } = req.params as { equipeId: string; id: string };
+  try {
+    await validerEquipeModifiable(equipeId);
+    await prisma.personnage.delete({ where: { id: req.params.id } });
+    res.status(204).send();
+  } catch (e) {
+    if (e instanceof ErreurValidation) {
+      return res.status(400).json({ erreur: e.message });
+    }
+    throw e;
+  }
 });
 
 const acheterSchema = z.object({
@@ -202,7 +230,8 @@ personnageRouter.post("/:id/acheter", async (req, res) => {
   const { objetId, emplacement } = parsed.data;
 
   try {
-    const { objet } = await validerEquipement(personnageId, objetId);
+    await validerEquipeModifiable(equipeId);
+    const { personnage, objet } = await validerEquipement(personnageId, objetId);
 
     const famille = FAMILLES_MULTI_SLOTS[objet.emplacement ?? ""];
     const slotValide = famille ? famille.includes(emplacement) : emplacement === objet.emplacement;
@@ -217,6 +246,32 @@ personnageRouter.post("/:id/acheter", async (req, res) => {
     });
     if (dejaOccupe) {
       throw new ErreurValidation(`L'emplacement "${emplacement}" est déjà occupé.`);
+    }
+
+    // Arc/arme lourde ⇄ bouclier ou grimoire en main gauche : les deux mains ne peuvent pas être
+    // prises en même temps (cf. CATEGORIES_DEUX_MAINS) — SAUF Berserker, dont l'attaque signature
+    // "Fracassement" (Codex des Classes) tient explicitement deux armes lourdes en même temps
+    // (dual-wield), une par main, plutôt qu'une seule arme occupant les deux.
+    if (
+      personnage.classeId !== "berserker" &&
+      (emplacement === "MAIN_GAUCHE" || CATEGORIES_DEUX_MAINS.includes(objet.categorie))
+    ) {
+      const [mainDroite, mainGauche] = await Promise.all([
+        prisma.inventairePersonnage.findUnique({
+          where: { personnageId_emplacement: { personnageId, emplacement: "MAIN_DROITE" } },
+          include: { objet: true },
+        }),
+        prisma.inventairePersonnage.findUnique({
+          where: { personnageId_emplacement: { personnageId, emplacement: "MAIN_GAUCHE" } },
+          include: { objet: true },
+        }),
+      ]);
+      if (emplacement === "MAIN_GAUCHE" && mainDroite && CATEGORIES_DEUX_MAINS.includes(mainDroite.objet.categorie)) {
+        throw new ErreurValidation(`Impossible d'équiper "${objet.nom}" : "${mainDroite.objet.nom}" occupe déjà les deux mains.`);
+      }
+      if (CATEGORIES_DEUX_MAINS.includes(objet.categorie) && mainGauche) {
+        throw new ErreurValidation(`"${objet.nom}" nécessite les deux mains libres : retirez d'abord "${mainGauche.objet.nom}".`);
+      }
     }
 
     const prix = objet.prix ?? 0;
@@ -249,6 +304,15 @@ personnageRouter.post("/:id/acheter", async (req, res) => {
  */
 personnageRouter.delete("/:id/inventaire/:inventaireId", async (req, res) => {
   const { equipeId, inventaireId } = req.params as { id: string; equipeId: string; inventaireId: string };
+  try {
+    await validerEquipeModifiable(equipeId);
+  } catch (e) {
+    if (e instanceof ErreurValidation) {
+      return res.status(400).json({ erreur: e.message });
+    }
+    throw e;
+  }
+
   const item = await prisma.inventairePersonnage.findUnique({ where: { id: inventaireId } });
   if (!item) {
     return res.status(404).json({ erreur: "Objet d'inventaire introuvable." });

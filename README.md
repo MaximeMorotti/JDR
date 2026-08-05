@@ -66,10 +66,10 @@ npx prisma studio          # interface visuelle pour explorer la base
 
 ## 📋 Roadmap
 
-Le développement est découpé en sprints. Voir [`docs/Roadmap_Sprints.md`](docs/Roadmap_Sprints.md) pour le détail complet des user stories et features de chaque étape.
+Le développement est découpé en sprints. Voir [`Roadmap_Sprints.md`](Roadmap_Sprints.md) pour le détail complet des user stories et features de chaque étape, et [`Sprint1_Walkthrough.md`](Sprint1_Walkthrough.md) pour le résumé de ce qui a été construit au Sprint 1.
 
 - [x] **Sprint 0** — Fondations techniques (structure du repo, Vite + TS, Prisma + SQLite)
-- [ ] **Sprint 1** — Création de personnage de A à Z
+- [x] **Sprint 1** — Création de personnage de A à Z
 - [ ] **Sprint 2** — Déplacement sur la carte de combat (grille octogonale, obstacles)
 - [ ] **Sprint 3** — Combat contre des mobs
 - [ ] **Sprint 4** — Équipement, craft et compagnons
@@ -78,7 +78,7 @@ Le développement est découpé en sprints. Voir [`docs/Roadmap_Sprints.md`](doc
 ## 📚 Documentation de jeu (`docs/`)
 
 - Bestiaire — Chapitre 1 (races, créatures, stats, attaques, loot)
-- Codex des Classes (7 classes, 38 spécialisations)
+- Codex des Classes (7 classes au sens du Codex, implémentées comme 9 — le Mage compte pour 3 écoles indépendantes ; 37 spécialisations)
 - Codex de l'Équipement (armes, armures, accessoires)
 - Répertoire de Craft
 - Codex des Compagnons

@@ -24,6 +24,11 @@ model Equipe {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  /// Passe à true dès que "Jouer" est validé sur le récap de lancement d'aventure — verrouille
+  /// définitivement l'équipe (plus de création/suppression de personnage, plus de changement de
+  /// compagnon, plus d'achat en boutique). Jamais remis à false : une aventure ne se "dé-démarre" pas.
+  aventureCommencee Boolean @default(false)
+
   personnages     Personnage[]
   compagnonEquipe CompagnonEquipe?
 
@@ -171,7 +176,7 @@ model CategorieArmeAutoriseeParClasse {
   @@map("categories_armes_autorisees")
 }
 
-/// Catalogue des 38 spécialisations (4-5 par classe, y compris chaque classe de Mage).
+/// Catalogue des 37 spécialisations (4-5 par classe, y compris chaque classe de Mage).
 model SpecialisationRef {
   id String @id @default(cuid())
 
@@ -302,6 +307,10 @@ model CompagnonEquipe {
   equipe      Equipe       @relation(fields: [equipeId], references: [id], onDelete: Cascade)
   compagnonId String
   compagnon   CompagnonRef @relation(fields: [compagnonId], references: [id])
+
+  /// Pseudo donné par le joueur au compagnon (ex: "Rex"). Null tant que le joueur ne l'a pas
+  /// renommé — la fiche du Codex (nom d'espèce, ex: "Chihuahua") reste affichée par défaut.
+  pseudo String?
 
   createdAt DateTime @default(now())
 
