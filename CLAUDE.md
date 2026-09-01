@@ -102,3 +102,17 @@ Voir `Roadmap_Sprints.md` (racine du dépôt) pour le détail complet. État act
 | Le Berserker (Demi-Orc) est exempté de la règle "arme à 2 mains bloque l'autre main" (son attaque signature "Fracassement" tient deux armes lourdes en même temps, une par main) — exception déjà codée côté client et serveur (`CLASSE_EXCEPTION_DEUX_MAINS` / check `classeId !== "berserker"`) | **Limitation connue, non résolue à la clôture du Sprint 1** : tous les objets `ARME_LOURDE` du seed ont un `emplacement: "MAIN_DROITE"` figé (contrairement à `ANNEAU`/`BRACELET` qui utilisent `FAMILLES_MULTI_SLOTS` pour choisir entre 2 emplacements) — aucune arme ne peut donc actuellement être achetée en `MAIN_GAUCHE`, ce qui rend l'exception Berserker inexploitable en pratique malgré le code déjà en place. À corriger avant/pendant le Sprint 4 (équipement) : soit une famille multi-slots dédiée aux armes lourdes (réservée au Berserker), soit un second objet dupliqué par arme, soit un contournement spécifique dans `slotValide` (`personnage.routes.ts`) |
 
 *Compléter ce tableau au fil des sprints plutôt que de modifier les Codex sources à chaud.*
+
+## Agent skills
+
+### Issue tracker
+
+Issues live in GitHub Issues (`MaximeMorotti/JDR`), managed via the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default five-role vocabulary (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`), used as-is. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context layout (`CONTEXT.md` + `docs/adr/` at the repo root). See `docs/agents/domain.md`.
