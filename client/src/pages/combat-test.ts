@@ -21,7 +21,7 @@ const TAILLE_CASE = 42;
 
 const ZONES: ZoneBestiaire[] = ["Forêt", "Ruines", "Grotte", "Village", "Boss"];
 
-type Ennemi = { instanceId: string; creature: CreatureBestiaire; x: number; y: number };
+type Ennemi = { instanceId: string; creature: CreatureBestiaire; x: number; y: number; pv: number };
 type Position = { x: number; y: number };
 type PresetObstacle = "LEGER" | "MOYEN" | "LOURD";
 /**
@@ -90,6 +90,41 @@ function configDepuisPreset(preset: PresetObstacle): ConfigPoseObstacle {
  * (Sprint 3), pas codées ici.
  */
 const COUT_TRANCHEE_NON_NAIN = 2;
+
+/**
+ * Règles de combat simplifiées du banc d'essai (§5bis) : le MJ IA n'arrive qu'au Sprint 5, donc
+ * mêlée/distance et portée d'attaque sont des placeholders déterministes, explicitement temporaires
+ * — à remplacer par le vrai moteur de combat par arme/classe (Sprint 3).
+ */
+type ModeAttaque = "MELEE" | "DISTANCE";
+
+/** Catégories équipées en MAIN_DROITE qui attaquent à distance sans se déplacer (§5bis). */
+const CATEGORIES_ARME_DISTANCE = ["ARME_DISTANCE", "ARME_JET", "OBJET_MAGIQUE"];
+
+/** Dégâts fixes par attaque réussie — même valeur temporaire que la destruction d'obstacle (§5). */
+const DEGATS_ATTAQUE_FIXES = 5;
+
+/**
+ * Mêlée/distance selon la catégorie de l'arme en MAIN_DROITE, jamais selon la race (§5bis) :
+ * ARME_DISTANCE/ARME_JET/OBJET_MAGIQUE (Bâton/Grimoire du Mage) → distance ; ARME_LEGERE/ARME_LOURDE
+ * ou aucune arme équipée (mains nues) → mêlée.
+ */
+function determinerModeAttaque(personnage: Personnage): ModeAttaque {
+  const armeMainDroite = personnage.inventaire.find((item) => item.emplacement === "MAIN_DROITE");
+  if (armeMainDroite && CATEGORIES_ARME_DISTANCE.includes(armeMainDroite.objet.categorie)) {
+    return "DISTANCE";
+  }
+  return "MELEE";
+}
+
+/**
+ * Portée d'attaque d'un joueur (pas de donnée Bestiaire dédiée, placeholder) : un attaquant à
+ * distance porte jusqu'à sa portée de déplacement (Dextérité) sans bouger ; un attaquant de mêlée
+ * doit être adjacent (Chebyshev 1) à sa cible.
+ */
+function porteeAttaquePersonnage(personnage: Personnage, mode: ModeAttaque): number {
+  return mode === "DISTANCE" ? porteeDeplacement(personnage.dexterite) : 1;
+}
 
 function cleCase(x: number, y: number): string {
   return `${x},${y}`;
@@ -238,7 +273,7 @@ export async function renderCombatTest(app: HTMLElement) {
 
   function ajouterEnnemi(creature: CreatureBestiaire) {
     const pos = trouverCaseLibreHaut();
-    ennemis.push({ instanceId: `e${prochainInstanceId++}`, creature, ...pos });
+    ennemis.push({ instanceId: `e${prochainInstanceId++}`, creature, ...pos, pv: creature.pv });
     journal.push(`${creature.nom} apparaît sur le terrain.`);
     rendre();
   }
@@ -301,6 +336,23 @@ export async function renderCombatTest(app: HTMLElement) {
     rendre();
   }
 
+  /**
+   * Attaque du joueur sur un ennemi en portée (§5bis) : dégâts fixes, mêlée/distance déjà tranchés
+   * par `determinerModeAttaque` au moment de l'appel. Distinct d'`agirEnnemi` (qui simule le tour de
+   * l'ennemi) — un clic sur un ennemi attaquable déclenche celle-ci en priorité (voir le handler de
+   * clic dans `rendre`).
+   */
+  function attaquerEnnemi(personnage: Personnage, ennemi: Ennemi, mode: ModeAttaque) {
+    ennemi.pv -= DEGATS_ATTAQUE_FIXES;
+    const moyen = mode === "DISTANCE" ? "à distance" : "au corps-à-corps";
+    journal.push(`${personnage.pseudo} attaque ${ennemi.creature.nom} ${moyen} — ${DEGATS_ATTAQUE_FIXES} dégâts.`);
+    if (ennemi.pv <= 0) {
+      ennemis.splice(ennemis.indexOf(ennemi), 1);
+      journal.push(`${ennemi.creature.nom} est vaincu !`);
+    }
+    rendre();
+  }
+
   app.innerHTML = `
     <div class="page-combat-test">
       <div class="entete-combat-test">
@@ -314,8 +366,11 @@ export async function renderCombatTest(app: HTMLElement) {
       <div class="panneau-pose-obstacle" id="panneau-pose-obstacle" hidden></div>
       <p class="note-combat-test">
         Banc d'essai Sprint 2 : clique un personnage puis une case surlignée pour le déplacer.
-        Clique un ennemi pour le faire agir (attaque s'il est en portée d'un allié, sinon
-        déplacement vers le plus proche). Portée de déplacement = Dextérité, pas de dé.
+        Portée de déplacement = Dextérité, pas de dé. <strong>Attaque</strong> : un personnage
+        sélectionné avec un ennemi surligné en or à portée l'attaque au clic (5 dégâts fixes) — arme
+        à distance/objet magique en main droite = portée de déplacement sans bouger, sinon mêlée =
+        doit être adjacent. Cliquer un ennemi hors de cette portée le fait agir lui-même à la place
+        (attaque s'il est en portée d'un allié, sinon déplacement vers le plus proche).
         <strong>Obstacles</strong> : preset Léger/Moyen/Lourd ou case infranchissable de zone
         (panneau ci-dessus) — bloquent toujours totalement la case pour l'instant, le jet de
         franchissement/destruction n'est pas encore implémenté. <strong>Tranchée</strong> : ne
@@ -473,9 +528,18 @@ export async function renderCombatTest(app: HTMLElement) {
       ? casesAtteignables(posSelection, portee, estNain, selectionneId ?? undefined)
       : new Set<string>();
 
+    const modeAttaque = selectionne ? determinerModeAttaque(selectionne) : null;
+    const porteeAtq = selectionne && modeAttaque ? porteeAttaquePersonnage(selectionne, modeAttaque) : 0;
+    const attaquables = new Set<string>();
+    if (posSelection && modeAttaque) {
+      for (const ennemi of ennemis) {
+        if (distanceChebyshev(posSelection, ennemi) <= porteeAtq) attaquables.add(ennemi.instanceId);
+      }
+    }
+
     ficheSelection.innerHTML = selectionne
-      ? `<div class="fiche-selection-combat">${selectionne.pseudo} — ${selectionne.race.nom} · ${selectionne.classe.nom} — Dextérité ${selectionne.dexterite} → portée ${portee}</div>`
-      : `<div class="fiche-selection-combat fiche-selection-combat--vide">Sélectionne un personnage pour voir sa portée de déplacement.</div>`;
+      ? `<div class="fiche-selection-combat">${selectionne.pseudo} — ${selectionne.race.nom} · ${selectionne.classe.nom} — Dextérité ${selectionne.dexterite} → portée ${portee} · Attaque ${modeAttaque === "DISTANCE" ? "à distance" : "au corps-à-corps"} (portée ${porteeAtq})</div>`
+      : `<div class="fiche-selection-combat fiche-selection-combat--vide">Sélectionne un personnage pour voir sa portée de déplacement et d'attaque.</div>`;
 
     let html = "";
     for (let y = 0; y < LIGNES; y++) {
@@ -503,7 +567,8 @@ export async function renderCombatTest(app: HTMLElement) {
           const estSelectionne = perso.id === selectionneId;
           html += `<img class="jeton-personnage ${estSelectionne ? "jeton-personnage--selectionne" : ""}" data-perso="${perso.id}" src="/img/equipe-portraits/${perso.raceId}.webp" alt="${perso.pseudo}" title="${perso.pseudo}" />`;
         } else if (ennemi) {
-          html += `<div class="jeton-ennemi" data-ennemi="${ennemi.instanceId}" title="${ennemi.creature.nom}">👹</div>`;
+          const estAttaquable = attaquables.has(ennemi.instanceId);
+          html += `<div class="jeton-ennemi ${estAttaquable ? "jeton-ennemi--attaquable" : ""}" data-ennemi="${ennemi.instanceId}" title="${ennemi.creature.nom} — PV ${ennemi.pv}/${ennemi.creature.pv}${estAttaquable ? " (à portée d'attaque)" : ""}">👹</div>`;
         } else if (obstacle && estZoneInfranchissable) {
           html += `<div class="jeton-obstacle jeton-obstacle--zone" title="Infranchissable de zone — jamais de PV, jamais franchissable/destructible">⬛</div>`;
         } else if (obstacle) {
@@ -539,7 +604,14 @@ export async function renderCombatTest(app: HTMLElement) {
         e.stopPropagation();
         const instanceId = jeton.dataset["ennemi"]!;
         const ennemi = ennemis.find((en) => en.instanceId === instanceId);
-        if (ennemi) agirEnnemi(ennemi);
+        if (!ennemi) return;
+        // Un personnage sélectionné avec cet ennemi à portée d'attaque l'attaque (§5bis) ; sinon,
+        // clic = faire agir l'ennemi lui-même (comportement existant, inchangé).
+        if (selectionne && modeAttaque && attaquables.has(ennemi.instanceId)) {
+          attaquerEnnemi(selectionne, ennemi, modeAttaque);
+        } else {
+          agirEnnemi(ennemi);
+        }
       });
     });
 

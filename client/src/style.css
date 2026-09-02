@@ -2307,6 +2307,7 @@ button {
   cursor: pointer;
 }
 .jeton-ennemi:hover { background: var(--danger); }
+.jeton-ennemi--attaquable { border-color: var(--gold); box-shadow: 0 0 0 2px var(--gold); }
 
 .journal-combat-test {
   margin-top: 10px;

@@ -4,8 +4,9 @@ import { state } from "../state";
 
 /**
  * Lore d'introduction affiché comme premier message du MJ. Simple texte statique pour l'instant —
- * pas de génération, le vrai MJ-IA arrive au Sprint 5 (cf. CLAUDE.md). Le détail du gameplay
- * (déplacement, grille de combat) est repoussé au Sprint 2, à concevoir séparément.
+ * pas de génération, le vrai MJ-IA arrive au Sprint 5 (cf. CLAUDE.md). Le bouton "Combat test"
+ * ci-dessous est un banc d'essai Sprint 2 pour la grille/le déplacement (voir
+ * client/src/pages/combat-test.ts et vibe/design/plan_grille_combat.md), pas le vrai combat.
  */
 const LORE_DEBUT_AVENTURE = `Le soleil se lève à peine sur le village. Une odeur de pain chaud flotte encore près de la
 boulangerie, mais quelque chose cloche : les hurlements de loups se rapprochent nuit après nuit, et une rumeur
@@ -29,6 +30,7 @@ export async function renderAventure(app: HTMLElement) {
     <div class="page-aventure">
       <div class="entete-aventure">
         <h1>${equipe.nom}</h1>
+        <button class="btn btn--fantome" id="btn-combat-test">⚔ Combat test (préprod)</button>
       </div>
       <div class="chat-aventure" id="chat-log"></div>
       <form class="chat-saisie" id="form-chat">
@@ -63,4 +65,5 @@ export async function renderAventure(app: HTMLElement) {
   });
 
   app.querySelector("#btn-equipe")!.addEventListener("click", () => naviguer("/equipe"));
+  app.querySelector("#btn-combat-test")!.addEventListener("click", () => naviguer("/combat-test"));
 }
