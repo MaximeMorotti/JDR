@@ -8,10 +8,10 @@ import { CREATURES, PORTEE_CASES, type CreatureBestiaire, type ZoneBestiaire } f
  * `Creature` en base, pas de persistance : juste de quoi valider la mécanique de base avant de
  * construire le vrai système. Le modèle d'obstacle générique (PV/franchissable/malus/axe
  * d'interaction, presets Léger/Moyen/Lourd + case infranchissable de zone) suit
- * vibe/design/plan_grille_combat.md §3 et ADR-0001. Le jet de franchissement/destruction et les
- * bonus/malus raciaux (§4-5) restent à implémenter : un obstacle bloque donc toujours totalement le
- * déplacement pour l'instant, quel que soit son flag `franchissable` (vraie table Creature au
- * Sprint 3).
+ * vibe/design/plan_grille_combat.md §3 et ADR-0001. Les modes dédiés "Franchir"/"Détruire" (§4-5)
+ * lancent le jet de dé correspondant sur un obstacle adjacent au personnage sélectionné ; en dehors
+ * de ces modes, un obstacle reste totalement bloquant pour le déplacement normal (`casesAtteignables`
+ * — vraie table Creature au Sprint 3).
  * Grille "octogonale" = grille carrée avec les 8 directions autorisées (distance de Chebyshev), pas
  * un pavage hexagonal — reconfirmé explicitement avec l'utilisateur.
  */
@@ -26,16 +26,16 @@ type Position = { x: number; y: number };
 type PresetObstacle = "LEGER" | "MOYEN" | "LOURD";
 /**
  * Passage étroit (crevasse) vs franchissement en hauteur — axe consommé par la table race ×
- * interaction (§4, pas encore implémentée ici).
+ * interaction (§4, voir `TABLE_RACE_INTERACTION`).
  */
 type AxeInteractionObstacle = "ETROIT" | "HAUTEUR";
 
 /**
  * Obstacle générique (vibe/design/plan_grille_combat.md §3, ADR-0001) : PV, franchissabilité,
  * malus de Dextérité et axe d'interaction sont des champs libres par instance, pas une catégorie
- * figée en base — les presets ci-dessous ne sont que des raccourcis pratiques à la pose. Toujours
- * totalement bloquant pour le déplacement ici (voir `casesAtteignables`) : le jet de
- * franchissement/destruction (§5) n'est pas encore implémenté.
+ * figée en base — les presets ci-dessous ne sont que des raccourcis pratiques à la pose. Reste
+ * totalement bloquant pour le déplacement normal (voir `casesAtteignables`) : seuls les modes dédiés
+ * "Franchir"/"Détruire" (§5) permettent de le contourner, via un jet explicite.
  * L'infranchissable de zone (gouffre, ravin) est un cas à part hors de cette échelle : jamais de
  * PV, jamais destructible, jamais franchissable.
  */
@@ -146,6 +146,38 @@ const DIRECTIONS_8: [number, number][] = [
   [-1, 1], [0, 1], [1, 1],
 ];
 
+/**
+ * Jets de franchissement/destruction (vibe/design/plan_grille_combat.md §5) :
+ *   Franchir  = d20 + Dextérité + bonus/malus racial (§4) − malus de l'obstacle ≥ Seuil de franchissement
+ *   Détruire  = d20 + Force ≥ Seuil de résistance
+ * Le plan acte la formule et la table qualitative (§4) mais ne fixe aucune magnitude numérique.
+ * Seuils et bonus/malus ci-dessous sont donc un choix d'implémentation raisonnable (DC modérée
+ * façon d20, ~55% de réussite pour un personnage moyen), pas une valeur sourcée dans le Codex — à
+ * ajuster si le game design en décide autrement.
+ */
+const SEUIL_FRANCHISSEMENT = 12;
+const SEUIL_RESISTANCE = 12;
+const BONUS_RACIAL = 2;
+const MALUS_RACIAL = -2;
+const LEGER_MALUS_RACIAL = -1;
+
+/** Table race × axe d'interaction (§4) — bonus/malus au jet de Franchir. */
+const TABLE_RACE_INTERACTION: Record<string, Record<AxeInteractionObstacle, number>> = {
+  nain: { ETROIT: BONUS_RACIAL, HAUTEUR: MALUS_RACIAL },
+  elfe: { ETROIT: MALUS_RACIAL, HAUTEUR: BONUS_RACIAL },
+  humain: { ETROIT: 0, HAUTEUR: 0 },
+  "demi-orc": { ETROIT: MALUS_RACIAL, HAUTEUR: 0 },
+  mage: { ETROIT: 0, HAUTEUR: LEGER_MALUS_RACIAL },
+};
+
+function lancerD20(): number {
+  return Math.floor(Math.random() * 20) + 1;
+}
+
+function formatSigne(n: number): string {
+  return n >= 0 ? `+${n}` : `${n}`;
+}
+
 export async function renderCombatTest(app: HTMLElement) {
   const equipeId = state.equipeId;
   if (!equipeId) return naviguer("/accueil");
@@ -166,6 +198,8 @@ export async function renderCombatTest(app: HTMLElement) {
   let selectionneId: string | null = null;
   let modeObstacle = false;
   let modeTranchee = false;
+  let modeFranchir = false;
+  let modeDetruire = false;
   let configPose: ConfigPoseObstacle = configDepuisPreset("LEGER");
   let prochainInstanceId = 1;
   const journal: string[] = [];
@@ -230,9 +264,9 @@ export async function renderCombatTest(app: HTMLElement) {
 
   /**
    * Pose/retire un obstacle selon la config choisie dans le panneau de pose (preset ou
-   * infranchissable de zone) — mode toggle activé par le bouton dédié. Le franchissement/la
-   * destruction ne sont pas encore implémentés : pour l'instant un obstacle bloque totalement la
-   * case, comme un personnage ou un ennemi, quel que soit son flag `franchissable`.
+   * infranchissable de zone) — mode toggle activé par le bouton dédié. En dehors de ce mode, un
+   * obstacle bloque totalement la case pour le déplacement normal (voir `casesAtteignables`) ; les
+   * modes "Franchir"/"Détruire" (ci-dessous) sont les seuls moyens de le contourner.
    */
   function basculerObstacle(x: number, y: number) {
     const cle = cleCase(x, y);
@@ -267,6 +301,87 @@ export async function renderCombatTest(app: HTMLElement) {
     } else if (!caseOccupee(x, y)) {
       tranchees.add(cle);
       journal.push(`Tranchée creusée en (${x}, ${y}) — abri pour un Nain, -1 case de déplacement pour les autres.`);
+    }
+    rendre();
+  }
+
+  /**
+   * Tente de franchir un obstacle adjacent (§4-5) : d20 + Dextérité + bonus/malus racial selon
+   * l'axe d'interaction de l'obstacle − son malus de Dextérité (ignoré si l'Elfe esquive un
+   * obstacle "Léger", cumulable avec le bonus/malus de table) contre le seuil de franchissement.
+   * Échec = la case seule est refusée, le reste de la portée de déplacement du tour reste
+   * utilisable (aucun coût de déplacement n'est consommé ici, c'est une action séparée). Succès =
+   * le personnage se déplace sur la case de l'obstacle (simplification du banc d'essai : on ne
+   * modélise pas de case "de l'autre côté").
+   */
+  function tenterFranchir(personnage: Personnage, obstacle: Obstacle, x: number, y: number) {
+    if (obstacle.categorie === "INFRANCHISSABLE_ZONE") {
+      journal.push(`${personnage.pseudo} ne peut pas franchir une case infranchissable de zone en (${x}, ${y}).`);
+      rendre();
+      return;
+    }
+    const pos = positions.get(personnage.id)!;
+    if (distanceChebyshev(pos, { x, y }) > 1) {
+      journal.push(`${personnage.pseudo} doit être adjacent à l'obstacle en (${x}, ${y}) pour tenter de le franchir.`);
+      rendre();
+      return;
+    }
+    if (!obstacle.franchissable) {
+      journal.push(`${personnage.pseudo} ne peut pas franchir l'obstacle en (${x}, ${y}) — il n'est pas franchissable, tente Détruire ou contourne-le.`);
+      rendre();
+      return;
+    }
+    const esquiveElfe = personnage.raceId === "elfe" && obstacle.preset === "LEGER";
+    const malusObstacle = esquiveElfe ? 0 : obstacle.malusDexterite;
+    const bonusRacial = TABLE_RACE_INTERACTION[personnage.raceId]?.[obstacle.axeInteraction] ?? 0;
+    const d20 = lancerD20();
+    const jet = d20 + personnage.dexterite + bonusRacial - malusObstacle;
+    const succes = jet >= SEUIL_FRANCHISSEMENT;
+    const detailEsquive = esquiveElfe ? " (esquive Elfe : malus obstacle ignoré)" : "";
+    journal.push(
+      `${personnage.pseudo} tente de franchir en (${x}, ${y}) : d20(${d20}) + Dex ${personnage.dexterite} + interaction ${formatSigne(bonusRacial)} − malus obstacle ${malusObstacle}${detailEsquive} = ${jet} vs seuil ${SEUIL_FRANCHISSEMENT} → ${succes ? "réussite" : "échec"}.`
+    );
+    if (succes) {
+      positions.set(personnage.id, { x, y });
+      journal.push(`${personnage.pseudo} franchit l'obstacle et se déplace en (${x}, ${y}).`);
+    } else {
+      journal.push(`${personnage.pseudo} échoue à franchir cette case — le reste de sa portée de déplacement reste disponible ce tour.`);
+    }
+    rendre();
+  }
+
+  /**
+   * Tente de détruire un obstacle adjacent (§5) : d20 + Force contre le seuil de résistance.
+   * Succès = -5 PV fixes (même valeur que les dégâts d'attaque) ; à 0 PV l'obstacle disparaît et la
+   * case redevient un terrain normal. Aucun plancher de rattrapage (asymétrie de Force assumée).
+   */
+  function tenterDetruire(personnage: Personnage, obstacle: Obstacle, x: number, y: number, cle: string) {
+    if (obstacle.categorie === "INFRANCHISSABLE_ZONE") {
+      journal.push(`${personnage.pseudo} ne peut pas détruire une case infranchissable de zone en (${x}, ${y}).`);
+      rendre();
+      return;
+    }
+    const pos = positions.get(personnage.id)!;
+    if (distanceChebyshev(pos, { x, y }) > 1) {
+      journal.push(`${personnage.pseudo} doit être adjacent à l'obstacle en (${x}, ${y}) pour tenter de le détruire.`);
+      rendre();
+      return;
+    }
+    const d20 = lancerD20();
+    const jet = d20 + personnage.force;
+    const succes = jet >= SEUIL_RESISTANCE;
+    journal.push(
+      `${personnage.pseudo} tente de détruire l'obstacle en (${x}, ${y}) : d20(${d20}) + Force ${personnage.force} = ${jet} vs seuil ${SEUIL_RESISTANCE} → ${succes ? "réussite" : "échec"}.`
+    );
+    if (succes) {
+      obstacle.pv -= DEGATS_ATTAQUE_FIXES;
+      journal.push(`${personnage.pseudo} inflige ${DEGATS_ATTAQUE_FIXES} dégâts à l'obstacle (${Math.max(0, obstacle.pv)} PV restants).`);
+      if (obstacle.pv <= 0) {
+        obstacles.delete(cle);
+        journal.push(`L'obstacle en (${x}, ${y}) est détruit — la case redevient un terrain normal.`);
+      }
+    } else {
+      journal.push(`${personnage.pseudo} échoue à entamer l'obstacle en (${x}, ${y}) — il tient toujours debout.`);
     }
     rendre();
   }
@@ -360,6 +475,8 @@ export async function renderCombatTest(app: HTMLElement) {
         <div style="display:flex;gap:10px">
           <button class="btn btn--fantome" id="btn-mode-obstacle">🪨 Poser un obstacle</button>
           <button class="btn btn--fantome" id="btn-mode-tranchee">🕳️ Poser une tranchée (Nain)</button>
+          <button class="btn btn--fantome" id="btn-mode-franchir">🧗 Franchir</button>
+          <button class="btn btn--fantome" id="btn-mode-detruire">💥 Détruire</button>
           <button class="btn btn--fantome" id="btn-retour-aventure">← Retour</button>
         </div>
       </div>
@@ -372,10 +489,14 @@ export async function renderCombatTest(app: HTMLElement) {
         doit être adjacent. Cliquer un ennemi hors de cette portée le fait agir lui-même à la place
         (attaque s'il est en portée d'un allié, sinon déplacement vers le plus proche).
         <strong>Obstacles</strong> : preset Léger/Moyen/Lourd ou case infranchissable de zone
-        (panneau ci-dessus) — bloquent toujours totalement la case pour l'instant, le jet de
-        franchissement/destruction n'est pas encore implémenté. <strong>Tranchée</strong> : ne
-        bloque jamais, coûte 1 case de déplacement en plus pour tout le monde sauf les Nains
-        (visibilité réduite et protection au combat pas encore codées, dépendent du Sprint 3). Voir
+        (panneau ci-dessus) — bloquent toujours totalement la case en déplacement normal.
+        <strong>Franchir</strong>/<strong>Détruire</strong> : sélectionne un personnage adjacent à
+        l'obstacle, active le mode correspondant puis clique l'obstacle — lance le jet dédié (d20 +
+        Dextérité + bonus/malus racial − malus obstacle pour Franchir, d20 + Force pour Détruire),
+        déplace le personnage sur succès de Franchir, retire 5 PV à l'obstacle sur succès de Détruire
+        (case infranchissable de zone toujours refusée). <strong>Tranchée</strong> : ne bloque
+        jamais, coûte 1 case de déplacement en plus pour tout le monde sauf les Nains (visibilité
+        réduite et protection au combat pas encore codées, dépendent du Sprint 3). Voir
         <code>vibe/design/plan_grille_combat.md</code>.
       </p>
       <div class="mise-en-page-combat-test">
@@ -488,24 +609,28 @@ export async function renderCombatTest(app: HTMLElement) {
   app.querySelector("#btn-vider-ennemis")!.addEventListener("click", viderEnnemis);
 
   const btnModeObstacle = app.querySelector<HTMLButtonElement>("#btn-mode-obstacle")!;
-  btnModeObstacle.addEventListener("click", () => {
-    modeObstacle = !modeObstacle;
-    if (modeObstacle) modeTranchee = false;
-    btnModeObstacle.classList.toggle("btn--actif", modeObstacle);
-    btnModeTranchee.classList.toggle("btn--actif", modeTranchee);
-    rendrePanneauPose();
-    rendre();
-  });
-
   const btnModeTranchee = app.querySelector<HTMLButtonElement>("#btn-mode-tranchee")!;
-  btnModeTranchee.addEventListener("click", () => {
-    modeTranchee = !modeTranchee;
-    if (modeTranchee) modeObstacle = false;
-    btnModeTranchee.classList.toggle("btn--actif", modeTranchee);
+  const btnModeFranchir = app.querySelector<HTMLButtonElement>("#btn-mode-franchir")!;
+  const btnModeDetruire = app.querySelector<HTMLButtonElement>("#btn-mode-detruire")!;
+
+  /** Les 4 modes de pose/interaction sont mutuellement exclusifs — un seul actif à la fois. */
+  function basculerMode(mode: "obstacle" | "tranchee" | "franchir" | "detruire") {
+    modeObstacle = mode === "obstacle" ? !modeObstacle : false;
+    modeTranchee = mode === "tranchee" ? !modeTranchee : false;
+    modeFranchir = mode === "franchir" ? !modeFranchir : false;
+    modeDetruire = mode === "detruire" ? !modeDetruire : false;
     btnModeObstacle.classList.toggle("btn--actif", modeObstacle);
+    btnModeTranchee.classList.toggle("btn--actif", modeTranchee);
+    btnModeFranchir.classList.toggle("btn--actif", modeFranchir);
+    btnModeDetruire.classList.toggle("btn--actif", modeDetruire);
     rendrePanneauPose();
     rendre();
-  });
+  }
+
+  btnModeObstacle.addEventListener("click", () => basculerMode("obstacle"));
+  btnModeTranchee.addEventListener("click", () => basculerMode("tranchee"));
+  btnModeFranchir.addEventListener("click", () => basculerMode("franchir"));
+  btnModeDetruire.addEventListener("click", () => basculerMode("detruire"));
 
   function occupantPersonnage(x: number, y: number): Personnage | null {
     for (const p of equipe.personnages) {
@@ -617,7 +742,7 @@ export async function renderCombatTest(app: HTMLElement) {
 
     grille.querySelectorAll<HTMLElement>(".case-combat--atteignable").forEach((case_) => {
       case_.addEventListener("click", () => {
-        if (!selectionneId || modeObstacle || modeTranchee) return;
+        if (!selectionneId || modeObstacle || modeTranchee || modeFranchir || modeDetruire) return;
         const x = Number(case_.dataset["x"]);
         const y = Number(case_.dataset["y"]);
         positions.set(selectionneId, { x, y });
@@ -638,10 +763,25 @@ export async function renderCombatTest(app: HTMLElement) {
       jeton.addEventListener("click", (e) => {
         e.stopPropagation();
         const case_ = jeton.closest<HTMLElement>(".case-combat")!;
+        const x = Number(case_.dataset["x"]);
+        const y = Number(case_.dataset["y"]);
         if (modeObstacle) {
-          basculerObstacle(Number(case_.dataset["x"]), Number(case_.dataset["y"]));
+          basculerObstacle(x, y);
+          return;
+        }
+        const cle = cleCase(x, y);
+        const obstacleCible = obstacles.get(cle);
+        if (!obstacleCible) return;
+        if (modeFranchir || modeDetruire) {
+          if (!selectionne) {
+            journal.push("Sélectionne un personnage avant de tenter de franchir ou détruire un obstacle.");
+            rendre();
+            return;
+          }
+          if (modeFranchir) tenterFranchir(selectionne, obstacleCible, x, y);
+          else tenterDetruire(selectionne, obstacleCible, x, y, cle);
         } else {
-          journal.push("Franchir/détruire un obstacle n'est pas encore implémenté (voir vibe/design/plan_grille_combat.md).");
+          journal.push("Active le mode Franchir ou Détruire pour interagir avec cet obstacle.");
           rendre();
         }
       });
