@@ -1,0 +1,593 @@
+import { api, type Personnage } from "../api";
+import { naviguer } from "../router";
+import { state } from "../state";
+import { CREATURES, PORTEE_CASES, type CreatureBestiaire, type ZoneBestiaire } from "../data/bestiaire";
+
+/**
+ * Banc d'essai purement client pour le Sprint 2 (déplacement sur grille) — pas de table `Carte` ni
+ * `Creature` en base, pas de persistance : juste de quoi valider la mécanique de base avant de
+ * construire le vrai système. Le modèle d'obstacle générique (PV/franchissable/malus/axe
+ * d'interaction, presets Léger/Moyen/Lourd + case infranchissable de zone) suit
+ * vibe/design/plan_grille_combat.md §3 et ADR-0001. Le jet de franchissement/destruction et les
+ * bonus/malus raciaux (§4-5) restent à implémenter : un obstacle bloque donc toujours totalement le
+ * déplacement pour l'instant, quel que soit son flag `franchissable` (vraie table Creature au
+ * Sprint 3).
+ * Grille "octogonale" = grille carrée avec les 8 directions autorisées (distance de Chebyshev), pas
+ * un pavage hexagonal — reconfirmé explicitement avec l'utilisateur.
+ */
+const COLONNES = 15;
+const LIGNES = 11;
+const TAILLE_CASE = 42;
+
+const ZONES: ZoneBestiaire[] = ["Forêt", "Ruines", "Grotte", "Village", "Boss"];
+
+type Ennemi = { instanceId: string; creature: CreatureBestiaire; x: number; y: number };
+type Position = { x: number; y: number };
+type PresetObstacle = "LEGER" | "MOYEN" | "LOURD";
+/**
+ * Passage étroit (crevasse) vs franchissement en hauteur — axe consommé par la table race ×
+ * interaction (§4, pas encore implémentée ici).
+ */
+type AxeInteractionObstacle = "ETROIT" | "HAUTEUR";
+
+/**
+ * Obstacle générique (vibe/design/plan_grille_combat.md §3, ADR-0001) : PV, franchissabilité,
+ * malus de Dextérité et axe d'interaction sont des champs libres par instance, pas une catégorie
+ * figée en base — les presets ci-dessous ne sont que des raccourcis pratiques à la pose. Toujours
+ * totalement bloquant pour le déplacement ici (voir `casesAtteignables`) : le jet de
+ * franchissement/destruction (§5) n'est pas encore implémenté.
+ * L'infranchissable de zone (gouffre, ravin) est un cas à part hors de cette échelle : jamais de
+ * PV, jamais destructible, jamais franchissable.
+ */
+type Obstacle =
+  | {
+      categorie: "GENERIQUE";
+      preset: PresetObstacle;
+      pv: number;
+      franchissable: boolean;
+      malusDexterite: number;
+      axeInteraction: AxeInteractionObstacle;
+    }
+  | { categorie: "INFRANCHISSABLE_ZONE" };
+
+/** Presets de PV/franchissabilité suggérés à la pose (§3) — raccourcis pratiques, ajustables ensuite. */
+const PRESETS_OBSTACLE: Record<
+  PresetObstacle,
+  {
+    label: string;
+    exemple: string;
+    pv: number;
+    franchissable: boolean;
+    malusDexterite: number;
+    axeInteraction: AxeInteractionObstacle;
+  }
+> = {
+  LEGER: { label: "Léger", exemple: "Caisse, muret fragile, tonneau", pv: 5, franchissable: true, malusDexterite: 1, axeInteraction: "ETROIT" },
+  MOYEN: { label: "Moyen", exemple: "Rocher, tronc couché", pv: 25, franchissable: true, malusDexterite: 2, axeInteraction: "ETROIT" },
+  LOURD: { label: "Lourd", exemple: "Mur en pierre, porte renforcée", pv: 50, franchissable: false, malusDexterite: 3, axeInteraction: "HAUTEUR" },
+};
+
+/** Configuration en cours d'édition dans le panneau de pose (mode "Poser un obstacle"). */
+type ConfigPoseObstacle = {
+  preset: PresetObstacle | "INFRANCHISSABLE_ZONE";
+  pv: number;
+  franchissable: boolean;
+  malusDexterite: number;
+  axeInteraction: AxeInteractionObstacle;
+};
+
+function configDepuisPreset(preset: PresetObstacle): ConfigPoseObstacle {
+  const p = PRESETS_OBSTACLE[preset];
+  return { preset, pv: p.pv, franchissable: p.franchissable, malusDexterite: p.malusDexterite, axeInteraction: p.axeInteraction };
+}
+
+/**
+ * Case "Souterrain / Tranchée" (vibe/design/plan_grille_combat.md §2) — matérialisation probable du
+ * nœud Vitalité "Creuser une tranchée" du Nain (codex_arbre_competences.md). Ne bloque jamais la
+ * case (contrairement à un obstacle) : n'importe qui peut s'y tenir. Seul le coût de déplacement
+ * change selon la race — le Nain y passe normalement, les autres payent un pas supplémentaire.
+ * La visibilité réduite et la protection aux dégâts pour le Nain dépendent du moteur de combat
+ * (Sprint 3), pas codées ici.
+ */
+const COUT_TRANCHEE_NON_NAIN = 2;
+
+function cleCase(x: number, y: number): string {
+  return `${x},${y}`;
+}
+
+/** Portée de déplacement pour un repositionnement simple (pas d'obstacle) : la Dextérité, sans dé. */
+function porteeDeplacement(dexterite: number): number {
+  return dexterite;
+}
+
+function distanceChebyshev(a: Position, b: Position): number {
+  return Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
+}
+
+/** Les 8 directions d'un pas (lignes droites + diagonales). */
+const DIRECTIONS_8: [number, number][] = [
+  [-1, -1], [0, -1], [1, -1],
+  [-1, 0], [1, 0],
+  [-1, 1], [0, 1], [1, 1],
+];
+
+export async function renderCombatTest(app: HTMLElement) {
+  const equipeId = state.equipeId;
+  if (!equipeId) return naviguer("/accueil");
+
+  const equipe = await api.obtenirEquipe(equipeId);
+  if (equipe.personnages.length === 0) return naviguer("/equipe");
+
+  // Positions de départ des personnages : en ligne, centrées en bas de la grille.
+  const positions = new Map<string, Position>();
+  const depart = Math.floor((COLONNES - equipe.personnages.length * 2 + 1) / 2);
+  equipe.personnages.forEach((p, i) => {
+    positions.set(p.id, { x: depart + i * 2, y: LIGNES - 2 });
+  });
+
+  const ennemis: Ennemi[] = [];
+  const obstacles = new Map<string, Obstacle>();
+  const tranchees = new Set<string>();
+  let selectionneId: string | null = null;
+  let modeObstacle = false;
+  let modeTranchee = false;
+  let configPose: ConfigPoseObstacle = configDepuisPreset("LEGER");
+  let prochainInstanceId = 1;
+  const journal: string[] = [];
+
+  function caseOccupee(x: number, y: number, ignorerInstanceId?: string): boolean {
+    if (obstacles.has(cleCase(x, y))) return true;
+    if ([...positions.values()].some((pos) => pos.x === x && pos.y === y)) return true;
+    return ennemis.some((e) => e.instanceId !== ignorerInstanceId && e.x === x && e.y === y);
+  }
+
+  /**
+   * Cases réellement atteignables depuis `depart` en `portee` pas maximum, en tenant compte des
+   * obstacles ET des cases déjà occupées comme des murs (on ne peut pas les traverser, pas
+   * seulement s'y arrêter) — un obstacle coupe donc la route plutôt que d'être simplement
+   * "impossible d'atterrir dessus". Coût variable par case (Dijkstra, pas une simple BFS) : 1 pas
+   * normalement, 2 pas pour traverser une case Tranchée si le déplaceur n'est pas un Nain.
+   */
+  function casesAtteignables(depart: Position, portee: number, estNain: boolean, ignorerInstanceId?: string): Set<string> {
+    const distance = new Map<string, number>();
+    distance.set(cleCase(depart.x, depart.y), 0);
+    const visite = new Set<string>();
+    for (;;) {
+      let courantCle: string | null = null;
+      let courantDist = Infinity;
+      for (const [cle, d] of distance) {
+        if (!visite.has(cle) && d < courantDist) {
+          courantDist = d;
+          courantCle = cle;
+        }
+      }
+      if (courantCle === null || courantDist >= portee) break;
+      visite.add(courantCle);
+      const [cx, cy] = courantCle.split(",").map(Number) as [number, number];
+      for (const [dx, dy] of DIRECTIONS_8) {
+        const x = cx + dx;
+        const y = cy + dy;
+        if (x < 0 || x >= COLONNES || y < 0 || y >= LIGNES) continue;
+        const cle = cleCase(x, y);
+        if (visite.has(cle)) continue;
+        if (caseOccupee(x, y, ignorerInstanceId)) continue;
+        const coutPas = tranchees.has(cle) && !estNain ? COUT_TRANCHEE_NON_NAIN : 1;
+        const nouvelleDistance = courantDist + coutPas;
+        if (nouvelleDistance > portee) continue;
+        if (!distance.has(cle) || nouvelleDistance < distance.get(cle)!) {
+          distance.set(cle, nouvelleDistance);
+        }
+      }
+    }
+    distance.delete(cleCase(depart.x, depart.y));
+    return new Set(distance.keys());
+  }
+
+  /** Place un nouvel ennemi sur la première case libre en haut de la grille, ligne par ligne. */
+  function trouverCaseLibreHaut(): Position {
+    for (let y = 0; y < LIGNES; y++) {
+      for (let x = 0; x < COLONNES; x++) {
+        if (!caseOccupee(x, y)) return { x, y };
+      }
+    }
+    return { x: 0, y: 0 };
+  }
+
+  /**
+   * Pose/retire un obstacle selon la config choisie dans le panneau de pose (preset ou
+   * infranchissable de zone) — mode toggle activé par le bouton dédié. Le franchissement/la
+   * destruction ne sont pas encore implémentés : pour l'instant un obstacle bloque totalement la
+   * case, comme un personnage ou un ennemi, quel que soit son flag `franchissable`.
+   */
+  function basculerObstacle(x: number, y: number) {
+    const cle = cleCase(x, y);
+    if (obstacles.has(cle)) {
+      obstacles.delete(cle);
+      journal.push(`Obstacle retiré en (${x}, ${y}).`);
+    } else if (!caseOccupee(x, y) && !tranchees.has(cle)) {
+      if (configPose.preset === "INFRANCHISSABLE_ZONE") {
+        obstacles.set(cle, { categorie: "INFRANCHISSABLE_ZONE" });
+        journal.push(`Case infranchissable de zone posée en (${x}, ${y}) — gouffre, jamais franchissable ni destructible.`);
+      } else {
+        const { preset, pv, franchissable, malusDexterite, axeInteraction } = configPose;
+        obstacles.set(cle, { categorie: "GENERIQUE", preset, pv, franchissable, malusDexterite, axeInteraction });
+        const detail = franchissable
+          ? `franchissable (malus Dex -${malusDexterite}, axe ${axeInteraction === "ETROIT" ? "passage étroit" : "franchissement en hauteur"})`
+          : "infranchissable";
+        journal.push(`Obstacle ${PRESETS_OBSTACLE[preset].label} posé en (${x}, ${y}) — ${pv} PV, ${detail}.`);
+      }
+    }
+    rendre();
+  }
+
+  /**
+   * Pose/retire une case Souterrain/Tranchée — ne bloque jamais le passage (contrairement à un
+   * obstacle), juste un coût de déplacement différent selon la race (voir casesAtteignables).
+   */
+  function basculerTranchee(x: number, y: number) {
+    const cle = cleCase(x, y);
+    if (tranchees.has(cle)) {
+      tranchees.delete(cle);
+      journal.push(`Tranchée comblée en (${x}, ${y}).`);
+    } else if (!caseOccupee(x, y)) {
+      tranchees.add(cle);
+      journal.push(`Tranchée creusée en (${x}, ${y}) — abri pour un Nain, -1 case de déplacement pour les autres.`);
+    }
+    rendre();
+  }
+
+  function ajouterEnnemi(creature: CreatureBestiaire) {
+    const pos = trouverCaseLibreHaut();
+    ennemis.push({ instanceId: `e${prochainInstanceId++}`, creature, ...pos });
+    journal.push(`${creature.nom} apparaît sur le terrain.`);
+    rendre();
+  }
+
+  function viderEnnemis() {
+    ennemis.length = 0;
+    journal.push("Terrain d'ennemis vidé.");
+    rendre();
+  }
+
+  /** Trouve le personnage de l'équipe le plus proche d'une position donnée (distance de Chebyshev). */
+  function personnageLePlusProche(depuis: Position): { personnage: Personnage; distance: number } | null {
+    let meilleur: { personnage: Personnage; distance: number } | null = null;
+    for (const p of equipe.personnages) {
+      const pos = positions.get(p.id)!;
+      const d = distanceChebyshev(depuis, pos);
+      if (!meilleur || d < meilleur.distance) meilleur = { personnage: p, distance: d };
+    }
+    return meilleur;
+  }
+
+  /**
+   * Comportement d'ennemi minimal demandé : s'il a un allié (personnage) en portée d'attaque, il
+   * attaque (juste un message de journal, pas de dégâts — le moteur de combat arrive au Sprint 3).
+   * Sinon, il se rapproche du personnage le plus proche, jusqu'à sa portée de déplacement
+   * (Dextérité, comme les personnages), en choisissant la case libre qui réduit le plus la distance.
+   */
+  function agirEnnemi(ennemi: Ennemi) {
+    const cible = personnageLePlusProche(ennemi);
+    if (!cible) return;
+
+    const porteeAttaque = PORTEE_CASES[ennemi.creature.porteeAttaque];
+    if (cible.distance <= porteeAttaque) {
+      journal.push(`${ennemi.creature.nom} attaque ${cible.personnage.pseudo} (${ennemi.creature.attaquePrincipale}) !`);
+      rendre();
+      return;
+    }
+
+    const portee = porteeDeplacement(ennemi.creature.dexterite);
+    const posCible = positions.get(cible.personnage.id)!;
+    const atteignables = casesAtteignables(ennemi, portee, false, ennemi.instanceId);
+    let meilleureCase: Position | null = null;
+    let meilleureDistance = cible.distance;
+    for (const cle of atteignables) {
+      const [x, y] = cle.split(",").map(Number) as [number, number];
+      const d = distanceChebyshev({ x, y }, posCible);
+      if (d < meilleureDistance) {
+        meilleureDistance = d;
+        meilleureCase = { x, y };
+      }
+    }
+
+    if (meilleureCase) {
+      ennemi.x = meilleureCase.x;
+      ennemi.y = meilleureCase.y;
+      journal.push(`${ennemi.creature.nom} se rapproche de ${cible.personnage.pseudo}.`);
+    } else {
+      journal.push(`${ennemi.creature.nom} ne peut pas se rapprocher davantage.`);
+    }
+    rendre();
+  }
+
+  app.innerHTML = `
+    <div class="page-combat-test">
+      <div class="entete-combat-test">
+        <h1>Combat test (préprod)</h1>
+        <div style="display:flex;gap:10px">
+          <button class="btn btn--fantome" id="btn-mode-obstacle">🪨 Poser un obstacle</button>
+          <button class="btn btn--fantome" id="btn-mode-tranchee">🕳️ Poser une tranchée (Nain)</button>
+          <button class="btn btn--fantome" id="btn-retour-aventure">← Retour</button>
+        </div>
+      </div>
+      <div class="panneau-pose-obstacle" id="panneau-pose-obstacle" hidden></div>
+      <p class="note-combat-test">
+        Banc d'essai Sprint 2 : clique un personnage puis une case surlignée pour le déplacer.
+        Clique un ennemi pour le faire agir (attaque s'il est en portée d'un allié, sinon
+        déplacement vers le plus proche). Portée de déplacement = Dextérité, pas de dé.
+        <strong>Obstacles</strong> : preset Léger/Moyen/Lourd ou case infranchissable de zone
+        (panneau ci-dessus) — bloquent toujours totalement la case pour l'instant, le jet de
+        franchissement/destruction n'est pas encore implémenté. <strong>Tranchée</strong> : ne
+        bloque jamais, coûte 1 case de déplacement en plus pour tout le monde sauf les Nains
+        (visibilité réduite et protection au combat pas encore codées, dépendent du Sprint 3). Voir
+        <code>vibe/design/plan_grille_combat.md</code>.
+      </p>
+      <div class="mise-en-page-combat-test">
+        <div class="colonne-grille-combat">
+          <div id="fiche-selection"></div>
+          <div class="grille-combat" id="grille-combat" style="--colonnes:${COLONNES};--lignes:${LIGNES};--taille-case:${TAILLE_CASE}px"></div>
+          <div class="journal-combat-test" id="journal-combat-test"></div>
+        </div>
+        <aside class="panneau-ennemis">
+          <div class="entete-panneau-ennemis">
+            <h3>Ennemis</h3>
+            <button class="btn btn--fantome" id="btn-vider-ennemis">Vider</button>
+          </div>
+          <div class="liste-ennemis" id="liste-ennemis"></div>
+        </aside>
+      </div>
+    </div>
+  `;
+
+  const grille = app.querySelector<HTMLElement>("#grille-combat")!;
+  const ficheSelection = app.querySelector<HTMLElement>("#fiche-selection")!;
+  const journalEl = app.querySelector<HTMLElement>("#journal-combat-test")!;
+  const panneauPose = app.querySelector<HTMLElement>("#panneau-pose-obstacle")!;
+
+  /** Panneau de config affiché en mode "Poser un obstacle" : choix du preset + ajustement libre. */
+  function rendrePanneauPose() {
+    panneauPose.hidden = !modeObstacle;
+    if (!modeObstacle) {
+      panneauPose.innerHTML = "";
+      return;
+    }
+    const estZone = configPose.preset === "INFRANCHISSABLE_ZONE";
+    panneauPose.innerHTML = `
+      <label>Preset
+        <select id="select-preset-obstacle">
+          <option value="LEGER" ${configPose.preset === "LEGER" ? "selected" : ""}>Léger — ${PRESETS_OBSTACLE.LEGER.exemple}</option>
+          <option value="MOYEN" ${configPose.preset === "MOYEN" ? "selected" : ""}>Moyen — ${PRESETS_OBSTACLE.MOYEN.exemple}</option>
+          <option value="LOURD" ${configPose.preset === "LOURD" ? "selected" : ""}>Lourd — ${PRESETS_OBSTACLE.LOURD.exemple}</option>
+          <option value="INFRANCHISSABLE_ZONE" ${estZone ? "selected" : ""}>Infranchissable de zone — gouffre, ravin</option>
+        </select>
+      </label>
+      ${
+        estZone
+          ? `<span class="note-preset-obstacle">Jamais de PV, jamais franchissable, jamais destructible.</span>`
+          : `
+        <label>PV <input type="number" id="input-pv-obstacle" min="1" value="${configPose.pv}" /></label>
+        <label><input type="checkbox" id="checkbox-franchissable-obstacle" ${configPose.franchissable ? "checked" : ""} /> Franchissable</label>
+        <label>Malus Dex <input type="number" id="input-malus-obstacle" min="0" value="${configPose.malusDexterite}" ${configPose.franchissable ? "" : "disabled"} /></label>
+        <label>Axe
+          <select id="select-axe-obstacle" ${configPose.franchissable ? "" : "disabled"}>
+            <option value="ETROIT" ${configPose.axeInteraction === "ETROIT" ? "selected" : ""}>Passage étroit</option>
+            <option value="HAUTEUR" ${configPose.axeInteraction === "HAUTEUR" ? "selected" : ""}>Franchissement en hauteur</option>
+          </select>
+        </label>
+      `
+      }
+    `;
+
+    panneauPose.querySelector<HTMLSelectElement>("#select-preset-obstacle")!.addEventListener("change", (e) => {
+      const valeur = (e.target as HTMLSelectElement).value as PresetObstacle | "INFRANCHISSABLE_ZONE";
+      configPose =
+        valeur === "INFRANCHISSABLE_ZONE"
+          ? { preset: "INFRANCHISSABLE_ZONE", pv: 0, franchissable: false, malusDexterite: 0, axeInteraction: "ETROIT" }
+          : configDepuisPreset(valeur);
+      rendrePanneauPose();
+    });
+
+    if (!estZone) {
+      panneauPose.querySelector<HTMLInputElement>("#input-pv-obstacle")!.addEventListener("input", (e) => {
+        configPose.pv = Math.max(1, Number((e.target as HTMLInputElement).value) || 1);
+      });
+      panneauPose.querySelector<HTMLInputElement>("#checkbox-franchissable-obstacle")!.addEventListener("change", (e) => {
+        configPose.franchissable = (e.target as HTMLInputElement).checked;
+        rendrePanneauPose();
+      });
+      panneauPose.querySelector<HTMLInputElement>("#input-malus-obstacle")!.addEventListener("input", (e) => {
+        configPose.malusDexterite = Math.max(0, Number((e.target as HTMLInputElement).value) || 0);
+      });
+      panneauPose.querySelector<HTMLSelectElement>("#select-axe-obstacle")!.addEventListener("change", (e) => {
+        configPose.axeInteraction = (e.target as HTMLSelectElement).value as AxeInteractionObstacle;
+      });
+    }
+  }
+
+  // Panneau des ennemis disponibles : rempli une seule fois (ne dépend pas de rendre()).
+  const listeEnnemis = app.querySelector<HTMLElement>("#liste-ennemis")!;
+  listeEnnemis.innerHTML = ZONES.map(
+    (zone) => `
+      <div class="groupe-zone-ennemis">
+        <h4>${zone}</h4>
+        ${CREATURES.filter((c) => c.zone === zone)
+          .map(
+            (c) => `
+          <div class="ligne-ennemi-dispo">
+            <span>${c.nom}</span>
+            <button class="btn btn--fantome btn--petit" data-ajouter="${c.id}">+ Ajouter</button>
+          </div>
+        `
+          )
+          .join("")}
+      </div>
+    `
+  ).join("");
+  listeEnnemis.querySelectorAll<HTMLButtonElement>("[data-ajouter]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const creature = CREATURES.find((c) => c.id === btn.dataset["ajouter"]);
+      if (creature) ajouterEnnemi(creature);
+    });
+  });
+  app.querySelector("#btn-vider-ennemis")!.addEventListener("click", viderEnnemis);
+
+  const btnModeObstacle = app.querySelector<HTMLButtonElement>("#btn-mode-obstacle")!;
+  btnModeObstacle.addEventListener("click", () => {
+    modeObstacle = !modeObstacle;
+    if (modeObstacle) modeTranchee = false;
+    btnModeObstacle.classList.toggle("btn--actif", modeObstacle);
+    btnModeTranchee.classList.toggle("btn--actif", modeTranchee);
+    rendrePanneauPose();
+    rendre();
+  });
+
+  const btnModeTranchee = app.querySelector<HTMLButtonElement>("#btn-mode-tranchee")!;
+  btnModeTranchee.addEventListener("click", () => {
+    modeTranchee = !modeTranchee;
+    if (modeTranchee) modeObstacle = false;
+    btnModeTranchee.classList.toggle("btn--actif", modeTranchee);
+    btnModeObstacle.classList.toggle("btn--actif", modeObstacle);
+    rendrePanneauPose();
+    rendre();
+  });
+
+  function occupantPersonnage(x: number, y: number): Personnage | null {
+    for (const p of equipe.personnages) {
+      const pos = positions.get(p.id)!;
+      if (pos.x === x && pos.y === y) return p;
+    }
+    return null;
+  }
+
+  function occupantEnnemi(x: number, y: number): Ennemi | null {
+    return ennemis.find((e) => e.x === x && e.y === y) ?? null;
+  }
+
+  function rendre() {
+    const selectionne = selectionneId ? equipe.personnages.find((p) => p.id === selectionneId) ?? null : null;
+    const posSelection = selectionne ? positions.get(selectionne.id)! : null;
+    const portee = selectionne ? porteeDeplacement(selectionne.dexterite) : 0;
+    const estNain = selectionne?.raceId === "nain";
+    const atteignables = posSelection
+      ? casesAtteignables(posSelection, portee, estNain, selectionneId ?? undefined)
+      : new Set<string>();
+
+    ficheSelection.innerHTML = selectionne
+      ? `<div class="fiche-selection-combat">${selectionne.pseudo} — ${selectionne.race.nom} · ${selectionne.classe.nom} — Dextérité ${selectionne.dexterite} → portée ${portee}</div>`
+      : `<div class="fiche-selection-combat fiche-selection-combat--vide">Sélectionne un personnage pour voir sa portée de déplacement.</div>`;
+
+    let html = "";
+    for (let y = 0; y < LIGNES; y++) {
+      for (let x = 0; x < COLONNES; x++) {
+        const perso = occupantPersonnage(x, y);
+        const ennemi = occupantEnnemi(x, y);
+        const cle = cleCase(x, y);
+        const obstacle = obstacles.get(cle);
+        const tranchee = tranchees.has(cle);
+        const estAtteignable = atteignables.has(cle);
+        const modePlacement = modeObstacle || modeTranchee;
+        const estZoneInfranchissable = obstacle?.categorie === "INFRANCHISSABLE_ZONE";
+        const classes = [
+          "case-combat",
+          estAtteignable && "case-combat--atteignable",
+          (perso || ennemi) && "case-combat--occupee",
+          obstacle && (estZoneInfranchissable ? "case-combat--obstacle-zone" : "case-combat--obstacle"),
+          tranchee && "case-combat--tranchee",
+          modePlacement && !perso && !ennemi && "case-combat--pose",
+        ]
+          .filter(Boolean)
+          .join(" ");
+        html += `<div class="${classes}" data-x="${x}" data-y="${y}">`;
+        if (perso) {
+          const estSelectionne = perso.id === selectionneId;
+          html += `<img class="jeton-personnage ${estSelectionne ? "jeton-personnage--selectionne" : ""}" data-perso="${perso.id}" src="/img/equipe-portraits/${perso.raceId}.webp" alt="${perso.pseudo}" title="${perso.pseudo}" />`;
+        } else if (ennemi) {
+          html += `<div class="jeton-ennemi" data-ennemi="${ennemi.instanceId}" title="${ennemi.creature.nom}">👹</div>`;
+        } else if (obstacle && estZoneInfranchissable) {
+          html += `<div class="jeton-obstacle jeton-obstacle--zone" title="Infranchissable de zone — jamais de PV, jamais franchissable/destructible">⬛</div>`;
+        } else if (obstacle) {
+          const detail = obstacle.franchissable
+            ? `franchissable (malus Dex -${obstacle.malusDexterite}, axe ${obstacle.axeInteraction === "ETROIT" ? "passage étroit" : "franchissement en hauteur"})`
+            : "infranchissable";
+          html += `<div class="jeton-obstacle" title="${PRESETS_OBSTACLE[obstacle.preset].label} — ${obstacle.pv} PV, ${detail}">🪨</div>`;
+        } else if (tranchee) {
+          html += `<div class="jeton-tranchee" title="Tranchée — abri Nain, -1 case pour les autres">🕳️</div>`;
+        }
+        html += `</div>`;
+      }
+    }
+    grille.innerHTML = html;
+
+    journalEl.innerHTML = journal
+      .slice(-8)
+      .map((ligne) => `<div class="ligne-journal-combat">${ligne}</div>`)
+      .join("");
+    journalEl.scrollTop = journalEl.scrollHeight;
+
+    grille.querySelectorAll<HTMLImageElement>("[data-perso]").forEach((jeton) => {
+      jeton.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const id = jeton.dataset["perso"]!;
+        selectionneId = selectionneId === id ? null : id;
+        rendre();
+      });
+    });
+
+    grille.querySelectorAll<HTMLElement>("[data-ennemi]").forEach((jeton) => {
+      jeton.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const instanceId = jeton.dataset["ennemi"]!;
+        const ennemi = ennemis.find((en) => en.instanceId === instanceId);
+        if (ennemi) agirEnnemi(ennemi);
+      });
+    });
+
+    grille.querySelectorAll<HTMLElement>(".case-combat--atteignable").forEach((case_) => {
+      case_.addEventListener("click", () => {
+        if (!selectionneId || modeObstacle || modeTranchee) return;
+        const x = Number(case_.dataset["x"]);
+        const y = Number(case_.dataset["y"]);
+        positions.set(selectionneId, { x, y });
+        rendre();
+      });
+    });
+
+    grille.querySelectorAll<HTMLElement>(".case-combat--pose").forEach((case_) => {
+      case_.addEventListener("click", () => {
+        const x = Number(case_.dataset["x"]);
+        const y = Number(case_.dataset["y"]);
+        if (modeObstacle) basculerObstacle(x, y);
+        else if (modeTranchee) basculerTranchee(x, y);
+      });
+    });
+
+    grille.querySelectorAll<HTMLElement>(".jeton-obstacle").forEach((jeton) => {
+      jeton.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const case_ = jeton.closest<HTMLElement>(".case-combat")!;
+        if (modeObstacle) {
+          basculerObstacle(Number(case_.dataset["x"]), Number(case_.dataset["y"]));
+        } else {
+          journal.push("Franchir/détruire un obstacle n'est pas encore implémenté (voir vibe/design/plan_grille_combat.md).");
+          rendre();
+        }
+      });
+    });
+
+    grille.querySelectorAll<HTMLElement>(".jeton-tranchee").forEach((jeton) => {
+      jeton.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const case_ = jeton.closest<HTMLElement>(".case-combat")!;
+        if (modeTranchee) {
+          basculerTranchee(Number(case_.dataset["x"]), Number(case_.dataset["y"]));
+        }
+      });
+    });
+  }
+
+  rendrePanneauPose();
+  rendre();
+
+  app.querySelector("#btn-retour-aventure")!.addEventListener("click", () => naviguer("/aventure"));
+}
