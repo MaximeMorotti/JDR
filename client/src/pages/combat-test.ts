@@ -110,6 +110,13 @@ const DEGATS_ATTAQUE_FIXES = 5;
  * Mêlée/distance selon la catégorie de l'arme en MAIN_DROITE, jamais selon la race (§5bis) :
  * ARME_DISTANCE/ARME_JET/OBJET_MAGIQUE (Bâton/Grimoire du Mage) → distance ; ARME_LEGERE/ARME_LOURDE
  * ou aucune arme équipée (mains nues) → mêlée.
+ * Dupliqué côté client pour l'affichage réactif à chaque rendu (exactement comme
+ * `CATEGORIES_DEUX_MAINS` dans `personnage.routes.ts`) — la version canonique et testée est
+ * `determinerModeAttaque` dans `server/src/services/combat-resolution.service.ts`. Contrairement à
+ * Franchir/Détruire, l'attaque n'utilise aucun dé (dégâts fixes) et cible un ennemi qui n'est pas
+ * encore une entité persistée (pas de table `Creature`, Sprint 3) : ticket #1 ne l'a donc PAS fait
+ * passer par une route serveur — la règle "toute règle de jeu validée côté serveur" (CLAUDE.md)
+ * reste seulement partiellement satisfaite ici, en attendant le vrai moteur de combat.
  */
 function determinerModeAttaque(personnage: Personnage): ModeAttaque {
   const armeMainDroite = personnage.inventaire.find((item) => item.emplacement === "MAIN_DROITE");
@@ -122,7 +129,9 @@ function determinerModeAttaque(personnage: Personnage): ModeAttaque {
 /**
  * Portée d'attaque d'un joueur (pas de donnée Bestiaire dédiée, placeholder) : un attaquant à
  * distance porte jusqu'à sa portée de déplacement (Dextérité) sans bouger ; un attaquant de mêlée
- * doit être adjacent (Chebyshev 1) à sa cible.
+ * doit être adjacent (Chebyshev 1) à sa cible. Dupliqué côté client comme `determinerModeAttaque`
+ * ci-dessus — version canonique et testée : `determinerPorteeAttaquePersonnage` dans
+ * `combat-resolution.service.ts`.
  */
 function porteeAttaquePersonnage(personnage: Personnage, mode: ModeAttaque): number {
   return mode === "DISTANCE" ? porteeDeplacement(personnage.dexterite) : 1;
@@ -152,29 +161,12 @@ const DIRECTIONS_8: [number, number][] = [
  * Jets de franchissement/destruction (vibe/design/plan_grille_combat.md §5) :
  *   Franchir  = d20 + Dextérité + bonus/malus racial (§4) − malus de l'obstacle ≥ Seuil de franchissement
  *   Détruire  = d20 + Force ≥ Seuil de résistance
- * Le plan acte la formule et la table qualitative (§4) mais ne fixe aucune magnitude numérique.
- * Seuils et bonus/malus ci-dessous sont donc un choix d'implémentation raisonnable (DC modérée
- * façon d20, ~55% de réussite pour un personnage moyen), pas une valeur sourcée dans le Codex — à
- * ajuster si le game design en décide autrement.
+ * Le d20 et le règlement (table race × interaction, esquive Elfe, seuils) sont désormais résolus
+ * côté serveur (`server/src/services/combat-resolution.service.ts`, ticket #1) via
+ * `api.tenterFranchir`/`api.tenterDetruire` — ce fichier ne fait plus que les préconditions
+ * d'affichage instantané (adjacence, franchissable) et l'appel réseau ; il n'y a plus qu'une seule
+ * source de vérité pour le règlement.
  */
-const SEUIL_FRANCHISSEMENT = 12;
-const SEUIL_RESISTANCE = 12;
-const BONUS_RACIAL = 2;
-const MALUS_RACIAL = -2;
-const LEGER_MALUS_RACIAL = -1;
-
-/** Table race × axe d'interaction (§4) — bonus/malus au jet de Franchir. */
-const TABLE_RACE_INTERACTION: Record<string, Record<AxeInteractionObstacle, number>> = {
-  nain: { ETROIT: BONUS_RACIAL, HAUTEUR: MALUS_RACIAL },
-  elfe: { ETROIT: MALUS_RACIAL, HAUTEUR: BONUS_RACIAL },
-  humain: { ETROIT: 0, HAUTEUR: 0 },
-  "demi-orc": { ETROIT: MALUS_RACIAL, HAUTEUR: 0 },
-  mage: { ETROIT: 0, HAUTEUR: LEGER_MALUS_RACIAL },
-};
-
-function lancerD20(): number {
-  return Math.floor(Math.random() * 20) + 1;
-}
 
 function formatSigne(n: number): string {
   return n >= 0 ? `+${n}` : `${n}`;
@@ -325,15 +317,15 @@ export async function renderCombatTest(app: HTMLElement) {
   }
 
   /**
-   * Tente de franchir un obstacle adjacent (§4-5) : d20 + Dextérité + bonus/malus racial selon
-   * l'axe d'interaction de l'obstacle − son malus de Dextérité (ignoré si l'Elfe esquive un
-   * obstacle "Léger", cumulable avec le bonus/malus de table) contre le seuil de franchissement.
-   * Échec = la case seule est refusée, le reste de la portée de déplacement du tour reste
-   * utilisable (aucun coût de déplacement n'est consommé ici, c'est une action séparée). Succès =
-   * le personnage se déplace sur la case de l'obstacle (simplification du banc d'essai : on ne
-   * modélise pas de case "de l'autre côté").
+   * Tente de franchir un obstacle adjacent (§4-5) : les préconditions d'affichage instantané
+   * (infranchissable de zone, adjacence, franchissable) restent vérifiées ici pour un retour sans
+   * latence réseau ; le jet lui-même (d20 + Dextérité + interaction raciale − malus obstacle,
+   * esquive Elfe) est résolu côté serveur (`api.tenterFranchir`) — seule source de vérité pour le
+   * règlement. Échec = la case seule est refusée, le reste de la portée de déplacement du tour
+   * reste utilisable. Succès = le personnage se déplace sur la case de l'obstacle (simplification
+   * du banc d'essai : on ne modélise pas de case "de l'autre côté").
    */
-  function tenterFranchir(personnage: Personnage, obstacle: Obstacle, x: number, y: number) {
+  async function tenterFranchir(personnage: Personnage, obstacle: Obstacle, x: number, y: number) {
     if (obstacle.categorie === "INFRANCHISSABLE_ZONE") {
       journal.push(`${personnage.pseudo} ne peut pas franchir une case infranchissable de zone en (${x}, ${y}).`);
       rendre();
@@ -350,17 +342,20 @@ export async function renderCombatTest(app: HTMLElement) {
       rendre();
       return;
     }
-    const esquiveElfe = personnage.raceId === "elfe" && obstacle.preset === "LEGER";
-    const malusObstacle = esquiveElfe ? 0 : obstacle.malusDexterite;
-    const bonusRacial = TABLE_RACE_INTERACTION[personnage.raceId]?.[obstacle.axeInteraction] ?? 0;
-    const d20 = lancerD20();
-    const jet = d20 + personnage.dexterite + bonusRacial - malusObstacle;
-    const succes = jet >= SEUIL_FRANCHISSEMENT;
-    const detailEsquive = esquiveElfe ? " (esquive Elfe : malus obstacle ignoré)" : "";
+
+    let resultat;
+    try {
+      resultat = await api.tenterFranchir(carte.id, { x, y, personnageId: personnage.id, personnagePosition: pos });
+    } catch (e) {
+      journal.push(`Erreur lors de la tentative de franchissement : ${(e as Error).message}`);
+      rendre();
+      return;
+    }
+    const detailEsquive = resultat.ignoreMalusObstacle ? " (esquive Elfe : malus obstacle ignoré)" : "";
     journal.push(
-      `${personnage.pseudo} tente de franchir en (${x}, ${y}) : d20(${d20}) + Dex ${personnage.dexterite} + interaction ${formatSigne(bonusRacial)} − malus obstacle ${malusObstacle}${detailEsquive} = ${jet} vs seuil ${SEUIL_FRANCHISSEMENT} → ${succes ? "réussite" : "échec"}.`
+      `${personnage.pseudo} tente de franchir en (${x}, ${y}) : d20(${resultat.d20}) + Dex ${personnage.dexterite} + interaction ${formatSigne(resultat.bonusMalusRacial)} − malus obstacle ${resultat.malusObstacleApplique}${detailEsquive} = ${resultat.jet} vs seuil ${resultat.seuil} → ${resultat.succes ? "réussite" : "échec"}.`
     );
-    if (succes) {
+    if (resultat.succes) {
       positions.set(personnage.id, { x, y });
       journal.push(`${personnage.pseudo} franchit l'obstacle et se déplace en (${x}, ${y}).`);
     } else {
@@ -370,11 +365,13 @@ export async function renderCombatTest(app: HTMLElement) {
   }
 
   /**
-   * Tente de détruire un obstacle adjacent (§5) : d20 + Force contre le seuil de résistance.
-   * Succès = -5 PV fixes (même valeur que les dégâts d'attaque) ; à 0 PV l'obstacle disparaît et la
-   * case redevient un terrain normal. Aucun plancher de rattrapage (asymétrie de Force assumée).
+   * Tente de détruire un obstacle adjacent (§5) : préconditions d'affichage instantané vérifiées
+   * ici (infranchissable de zone, adjacence), le jet (d20 + Force contre le seuil de résistance)
+   * et la persistance des PV de l'obstacle en base sont résolus côté serveur (`api.tenterDetruire`,
+   * `Carte.jsonLayout`). Aucun plancher de rattrapage (asymétrie de Force assumée) : un échec ne
+   * change rien aux PV.
    */
-  function tenterDetruire(personnage: Personnage, obstacle: Obstacle, x: number, y: number, cle: string) {
+  async function tenterDetruire(personnage: Personnage, obstacle: Obstacle, x: number, y: number, cle: string) {
     if (obstacle.categorie === "INFRANCHISSABLE_ZONE") {
       journal.push(`${personnage.pseudo} ne peut pas détruire une case infranchissable de zone en (${x}, ${y}).`);
       rendre();
@@ -386,16 +383,22 @@ export async function renderCombatTest(app: HTMLElement) {
       rendre();
       return;
     }
-    const d20 = lancerD20();
-    const jet = d20 + personnage.force;
-    const succes = jet >= SEUIL_RESISTANCE;
+
+    let resultat;
+    try {
+      resultat = await api.tenterDetruire(carte.id, { x, y, personnageId: personnage.id, personnagePosition: pos });
+    } catch (e) {
+      journal.push(`Erreur lors de la tentative de destruction : ${(e as Error).message}`);
+      rendre();
+      return;
+    }
     journal.push(
-      `${personnage.pseudo} tente de détruire l'obstacle en (${x}, ${y}) : d20(${d20}) + Force ${personnage.force} = ${jet} vs seuil ${SEUIL_RESISTANCE} → ${succes ? "réussite" : "échec"}.`
+      `${personnage.pseudo} tente de détruire l'obstacle en (${x}, ${y}) : d20(${resultat.d20}) + Force ${personnage.force} = ${resultat.jet} vs seuil ${resultat.seuil} → ${resultat.succes ? "réussite" : "échec"}.`
     );
-    if (succes) {
-      obstacle.pv -= DEGATS_ATTAQUE_FIXES;
-      journal.push(`${personnage.pseudo} inflige ${DEGATS_ATTAQUE_FIXES} dégâts à l'obstacle (${Math.max(0, obstacle.pv)} PV restants).`);
-      if (obstacle.pv <= 0) {
+    if (resultat.succes) {
+      obstacle.pv = resultat.pvRestants;
+      journal.push(`${personnage.pseudo} inflige des dégâts à l'obstacle (${resultat.pvRestants} PV restants).`);
+      if (resultat.detruit) {
         obstacles.delete(cle);
         journal.push(`L'obstacle en (${x}, ${y}) est détruit — la case redevient un terrain normal.`);
       }

@@ -156,6 +156,35 @@ export type Carte = {
   };
 };
 
+/**
+ * Verdict d'une tentative de Franchir (ticket #1) — le d20 et le règlement (interaction raciale,
+ * esquive Elfe) sont désormais résolus côté serveur (`combat-resolution.service.ts`), plus dans
+ * `combat-test.ts` : seule source de vérité pour le règlement.
+ */
+export type ResultatFranchir = {
+  succes: boolean;
+  d20: number;
+  jet: number;
+  bonusMalusRacial: number;
+  ignoreMalusObstacle: boolean;
+  malusObstacleApplique: number;
+  seuil: number;
+  x: number;
+  y: number;
+};
+
+/** Verdict d'une tentative de Détruire (ticket #1) — les PV de l'obstacle sont persistés en base sur succès. */
+export type ResultatDetruire = {
+  succes: boolean;
+  d20: number;
+  jet: number;
+  pvRestants: number;
+  detruit: boolean;
+  seuil: number;
+  x: number;
+  y: number;
+};
+
 export type Equipe = {
   id: string;
   nom: string;
@@ -177,6 +206,22 @@ export const api = {
 
   // ---------- Cartes ----------
   obtenirCarte: (id: string) => requete<Carte>(`/cartes/${id}`),
+  tenterFranchir: (
+    carteId: string,
+    data: { x: number; y: number; personnageId: string; personnagePosition: { x: number; y: number } }
+  ) =>
+    requete<ResultatFranchir>(`/cartes/${carteId}/franchir`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  tenterDetruire: (
+    carteId: string,
+    data: { x: number; y: number; personnageId: string; personnagePosition: { x: number; y: number } }
+  ) =>
+    requete<ResultatDetruire>(`/cartes/${carteId}/detruire`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
 
   // ---------- Équipes ----------
   listerEquipes: () => requete<Equipe[]>("/equipes"),
