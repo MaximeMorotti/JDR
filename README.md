@@ -70,7 +70,7 @@ Le développement est découpé en sprints. Voir [`Roadmap_Sprints.md`](Roadmap_
 
 - [x] **Sprint 0** — Fondations techniques (structure du repo, Vite + TS, Prisma + SQLite)
 - [x] **Sprint 1** — Création de personnage de A à Z
-- [ ] **Sprint 2** — Déplacement sur la carte de combat (grille octogonale, obstacles)
+- [x] **Sprint 2** — Déplacement sur la carte de combat (grille octogonale, obstacles)
 - [ ] **Sprint 3** — Combat contre des mobs
 - [ ] **Sprint 4** — Équipement, craft et compagnons
 - [ ] **Sprint 5** — Agent MJ IA

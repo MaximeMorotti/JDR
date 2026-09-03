@@ -62,9 +62,11 @@ Document de suivi du projet, découpé en sprints. Chaque sprint a un objectif u
 
 ---
 
-## Sprint 2 — Déplacement sur la carte de combat
+## Sprint 2 — Déplacement sur la carte de combat (TERMINÉ)
 
 **Objectif** : un personnage peut se déplacer sur une grille octogonale (8 directions) avec des obstacles, sur plusieurs cartes différentes.
+
+**Livré** (voir `vibe/design/plan_grille_combat.md` pour le détail du règlement et `CLAUDE.md` pour l'écart connu) : obstacle générique avec presets de PV et case infranchissable de zone, franchissement/destruction au jet de dé avec table d'interaction raciale et esquive Elfe, case Tranchée, attaque de base sur ennemi dans le banc d'essai, carte persistée en base et chargée via l'API, moteur de résolution pur côté serveur couvert par 47 tests vitest. Seule l'attaque n'a pas encore de route serveur dédiée (reste calculée côté client) — écart documenté dans `CLAUDE.md`, à corriger avant/pendant le Sprint 3.
 
 ### User story
 > En tant que joueur, je veux déplacer mon personnage sur une grille avec des obstacles afin de me positionner tactiquement avant et pendant un combat.
@@ -81,7 +83,7 @@ Document de suivi du projet, découpé en sprints. Chaque sprint a un objectif u
 ### Technique — Base de données
 - 🔴 Table `Carte` (id, nom, zone_liee, largeur, hauteur, json_layout) — `json_layout` stocke la position des obstacles/reliefs
 - 🟡 Table `PartieEnCours` (id, carte_id, etat_json) si on veut pouvoir reprendre une carte en cours plus tard (pas bloquant pour ce sprint, mais la colonne coûte rien à prévoir)
-- Aucune notion de combat/mob encore à ce stade — uniquement la mécanique de déplacement à valider
+- Aucune notion de combat/mob encore à ce stade — uniquement la mécanique de déplacement à valider 
 
 ---
 
@@ -173,7 +175,7 @@ Idées déjà évoquées mais explicitement reportées :
 |---|---|
 | 0 — Fondations techniques | ✅ Fait |
 | 1 — Création de personnage | ✅ Fait |
-| 2 — Déplacement sur carte | ⬜ À faire |
+| 2 — Déplacement sur carte | ✅ Fait |
 | 3 — Combat contre des mobs | ⬜ À faire |
 | 4 — Équipement, craft, compagnons | ⬜ À faire |
 | 5 — Agent MJ IA | ⬜ À faire |
