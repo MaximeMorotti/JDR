@@ -1,4 +1,4 @@
-import { api, type Personnage } from "../api";
+import { api, type ObstacleCarte, type Personnage } from "../api";
 import { naviguer } from "../router";
 import { state } from "../state";
 import { CREATURES, PORTEE_CASES, type CreatureBestiaire, type ZoneBestiaire } from "../data/bestiaire";
@@ -14,9 +14,11 @@ import { CREATURES, PORTEE_CASES, type CreatureBestiaire, type ZoneBestiaire } f
  * — vraie table Creature au Sprint 3).
  * Grille "octogonale" = grille carrée avec les 8 directions autorisées (distance de Chebyshev), pas
  * un pavage hexagonal — reconfirmé explicitement avec l'utilisateur.
+ * Dimensions, obstacles et tranchées viennent désormais de la carte persistée en base (ticket #5,
+ * `GET /api/cartes/:id`) — plus aucune donnée de carte codée en dur ici. Pas de sélection de carte
+ * en UI à ce stade (§9 du plan) : on charge toujours la même carte de test connue par son id fixe.
  */
-const COLONNES = 15;
-const LIGNES = 11;
+const ID_CARTE_TEST = "carte-test";
 const TAILLE_CASE = 42;
 
 const ZONES: ZoneBestiaire[] = ["Forêt", "Ruines", "Grotte", "Village", "Boss"];
@@ -182,8 +184,11 @@ export async function renderCombatTest(app: HTMLElement) {
   const equipeId = state.equipeId;
   if (!equipeId) return naviguer("/accueil");
 
-  const equipe = await api.obtenirEquipe(equipeId);
+  const [equipe, carte] = await Promise.all([api.obtenirEquipe(equipeId), api.obtenirCarte(ID_CARTE_TEST)]);
   if (equipe.personnages.length === 0) return naviguer("/equipe");
+
+  const COLONNES = carte.largeur;
+  const LIGNES = carte.hauteur;
 
   // Positions de départ des personnages : en ligne, centrées en bas de la grille.
   const positions = new Map<string, Position>();
@@ -193,8 +198,22 @@ export async function renderCombatTest(app: HTMLElement) {
   });
 
   const ennemis: Ennemi[] = [];
-  const obstacles = new Map<string, Obstacle>();
-  const tranchees = new Set<string>();
+  const obstacles = new Map<string, Obstacle>(
+    carte.layout.obstacles.map((o: ObstacleCarte) => [
+      cleCase(o.x, o.y),
+      o.categorie === "INFRANCHISSABLE_ZONE"
+        ? { categorie: "INFRANCHISSABLE_ZONE" as const }
+        : {
+            categorie: "GENERIQUE" as const,
+            preset: o.preset,
+            pv: o.pv,
+            franchissable: o.franchissable,
+            malusDexterite: o.malusDexterite,
+            axeInteraction: o.axeInteraction,
+          },
+    ])
+  );
+  const tranchees = new Set<string>(carte.layout.tranchees.map((t) => cleCase(t.x, t.y)));
   let selectionneId: string | null = null;
   let modeObstacle = false;
   let modeTranchee = false;

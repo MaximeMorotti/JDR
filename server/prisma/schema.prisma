@@ -87,6 +87,36 @@ model Personnage {
 }
 
 // ============================================================
+// GRILLE DE COMBAT — CARTE
+// ============================================================
+
+/// Carte de combat (Sprint 2, `vibe/design/plan_grille_combat.md` §2/§7/§9) : dimensions et
+/// disposition des obstacles/tranchées d'une grille, chargée par le banc d'essai
+/// `combat-test.ts` à la place des données codées en dur qui existaient jusqu'ici.
+/// `jsonLayout` reprend le type générique d'obstacle acté par ADR-0001 (ticket #2/#4) — pas de
+/// catégorie figée en base, PV/franchissable/malus/axe restent des nombres libres par instance —
+/// stocké en texte JSON (SQLite n'a pas de type JSON natif via ce client) : voir
+/// `CarteJsonLayout` dans `server/src/routes/carte.routes.ts` pour la forme exacte attendue.
+/// Pas de sélection de carte en UI à ce stade (une seule carte réelle suffit, §9) : id fixe et
+/// stable plutôt qu'un cuid, façon table de catalogue (RaceRef, ObjetRef...).
+model Carte {
+  id String @id
+
+  nom      String
+  /// Zone du Bestiaire associée (Forêt | Ruines | Grotte | Village | Boss) — texte libre, pas de
+  /// FK : le Bestiaire n'est pas modélisé en base (voir client/src/data/bestiaire.ts).
+  zoneLiee String
+  largeur  Int
+  hauteur  Int
+  jsonLayout String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("cartes")
+}
+
+// ============================================================
 // CATALOGUE DE RÉFÉRENCE — RACES, CLASSES, SPÉCIALISATIONS
 // ============================================================
 

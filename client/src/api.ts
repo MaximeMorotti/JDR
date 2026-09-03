@@ -126,6 +126,36 @@ export type Compagnon = {
 
 export type CompagnonDisponible = Compagnon & { accessible: boolean };
 
+/**
+ * Disposition d'une carte de combat (Sprint 2, ticket #5) : reprend tel quel le type `Obstacle`
+ * de `combat-test.ts` (ticket #2/#4, ADR-0001) — pas de catégorie figée, seulement des nombres
+ * libres par instance.
+ */
+export type ObstacleCarte =
+  | {
+      x: number;
+      y: number;
+      categorie: "GENERIQUE";
+      preset: "LEGER" | "MOYEN" | "LOURD";
+      pv: number;
+      franchissable: boolean;
+      malusDexterite: number;
+      axeInteraction: "ETROIT" | "HAUTEUR";
+    }
+  | { x: number; y: number; categorie: "INFRANCHISSABLE_ZONE" };
+
+export type Carte = {
+  id: string;
+  nom: string;
+  zoneLiee: string;
+  largeur: number;
+  hauteur: number;
+  layout: {
+    obstacles: ObstacleCarte[];
+    tranchees: { x: number; y: number }[];
+  };
+};
+
 export type Equipe = {
   id: string;
   nom: string;
@@ -144,6 +174,9 @@ export const api = {
     requete<Specialisation[]>(`/catalogue/classes/${classeId}/specialisations`),
   listerObjetsBoutique: () => requete<Objet[]>("/catalogue/objets?palier=COMMUN&origine=ACHAT_VILLAGE"),
   listerCompagnons: () => requete<Compagnon[]>("/catalogue/compagnons"),
+
+  // ---------- Cartes ----------
+  obtenirCarte: (id: string) => requete<Carte>(`/cartes/${id}`),
 
   // ---------- Équipes ----------
   listerEquipes: () => requete<Equipe[]>("/equipes"),

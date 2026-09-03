@@ -574,6 +574,37 @@ const compagnons: Compagnon[] = [
 ];
 
 // ============================================================
+// CARTES — Sprint 2, cf. vibe/design/plan_grille_combat.md §2/§9 et ADR-0001
+// ============================================================
+
+/**
+ * Carte de test unique (pas de sélection de carte en UI à ce stade, §9) : mêmes dimensions que
+ * l'ancienne grille codée en dur de combat-test.ts (15×11), avec quelques obstacles de chaque
+ * preset (§3) et une tranchée, pour valider le chargement depuis l'API. Format d'obstacle repris
+ * tel quel du type `Obstacle` de combat-test.ts (ticket #2/#4) — pas de catégorie figée en base
+ * (ADR-0001), seulement des nombres libres par instance.
+ */
+const cartes = [
+  {
+    id: "carte-test",
+    nom: "Clairière d'essai",
+    zoneLiee: "Forêt",
+    largeur: 15,
+    hauteur: 11,
+    jsonLayout: JSON.stringify({
+      obstacles: [
+        { x: 3, y: 5, categorie: "GENERIQUE", preset: "LEGER", pv: 5, franchissable: true, malusDexterite: 1, axeInteraction: "ETROIT" },
+        { x: 11, y: 5, categorie: "GENERIQUE", preset: "LEGER", pv: 5, franchissable: true, malusDexterite: 1, axeInteraction: "ETROIT" },
+        { x: 5, y: 4, categorie: "GENERIQUE", preset: "MOYEN", pv: 25, franchissable: true, malusDexterite: 2, axeInteraction: "ETROIT" },
+        { x: 9, y: 4, categorie: "GENERIQUE", preset: "MOYEN", pv: 25, franchissable: true, malusDexterite: 2, axeInteraction: "ETROIT" },
+        { x: 7, y: 3, categorie: "GENERIQUE", preset: "LOURD", pv: 50, franchissable: false, malusDexterite: 3, axeInteraction: "HAUTEUR" },
+      ],
+      tranchees: [{ x: 7, y: 6 }],
+    }),
+  },
+];
+
+// ============================================================
 // EXÉCUTION DU SEED
 // ============================================================
 
@@ -590,6 +621,7 @@ async function main() {
   await prisma.classeAutoriseeParRace.deleteMany();
   await prisma.classeRef.deleteMany();
   await prisma.raceRef.deleteMany();
+  await prisma.carte.deleteMany();
 
   console.log("Seed des races...");
   for (const race of races) {
@@ -638,6 +670,11 @@ async function main() {
         data: c.classesLiees.map((classeId) => ({ compagnonId: c.id, classeId })),
       });
     }
+  }
+
+  console.log("Seed des cartes...");
+  for (const carte of cartes) {
+    await prisma.carte.create({ data: carte });
   }
 
   console.log("Seed terminé.");

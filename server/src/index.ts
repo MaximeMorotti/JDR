@@ -1,6 +1,7 @@
 import "dotenv/config";
 import cors from "cors";
 import express from "express";
+import { carteRouter } from "./routes/carte.routes";
 import { catalogueRouter } from "./routes/catalogue.routes";
 import { compagnonRouter } from "./routes/compagnon.routes";
 import { equipeRouter } from "./routes/equipe.routes";
@@ -13,6 +14,7 @@ app.use(cors());
 app.use(express.json());
 
 app.use("/api/catalogue", catalogueRouter);
+app.use("/api/cartes", carteRouter);
 app.use("/api/equipes", equipeRouter);
 app.use("/api/equipes/:equipeId/personnages", personnageRouter);
 app.use("/api/equipes/:equipeId", compagnonRouter);
