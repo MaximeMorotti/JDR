@@ -66,7 +66,7 @@ Document de suivi du projet, découpé en sprints. Chaque sprint a un objectif u
 
 **Objectif** : un personnage peut se déplacer sur une grille octogonale (8 directions) avec des obstacles, sur plusieurs cartes différentes.
 
-**Livré** (voir `vibe/design/plan_grille_combat.md` pour le détail du règlement et `CLAUDE.md` pour l'écart connu) : obstacle générique avec presets de PV et case infranchissable de zone, franchissement/destruction au jet de dé avec table d'interaction raciale et esquive Elfe, case Tranchée, attaque de base sur ennemi dans le banc d'essai, carte persistée en base et chargée via l'API, moteur de résolution pur côté serveur couvert par 47 tests vitest. Seule l'attaque n'a pas encore de route serveur dédiée (reste calculée côté client) — écart documenté dans `CLAUDE.md`, à corriger avant/pendant le Sprint 3.
+**Livré** (voir `vibe/design/plan_grille_combat.md` pour le détail du règlement) : obstacle générique avec presets de PV et case infranchissable de zone, franchissement/destruction au jet de dé avec table d'interaction raciale et esquive Elfe, case Tranchée, attaque de base sur ennemi dans le banc d'essai, carte persistée en base et chargée via l'API, moteur de résolution pur côté serveur (franchir/détruire/attaquer, chacun avec sa route dédiée) couvert par 53 tests vitest.
 
 ### User story
 > En tant que joueur, je veux déplacer mon personnage sur une grille avec des obstacles afin de me positionner tactiquement avant et pendant un combat.

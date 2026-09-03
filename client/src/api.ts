@@ -185,6 +185,20 @@ export type ResultatDetruire = {
   y: number;
 };
 
+/**
+ * Verdict d'une attaque (ticket #1, §5bis) — aucun jet de dé (dégâts fixes) ; les PV de la cible ne
+ * sont pas persistés côté serveur (ennemis du banc d'essai pas encore une entité en base, Sprint 3),
+ * `pvRestants` reste à appliquer côté client sur l'ennemi visé.
+ */
+export type ResultatAttaque = {
+  mode: "MELEE" | "DISTANCE";
+  portee: number;
+  distance: number;
+  degats: number;
+  pvRestants: number;
+  vaincu: boolean;
+};
+
 export type Equipe = {
   id: string;
   nom: string;
@@ -219,6 +233,19 @@ export const api = {
     data: { x: number; y: number; personnageId: string; personnagePosition: { x: number; y: number } }
   ) =>
     requete<ResultatDetruire>(`/cartes/${carteId}/detruire`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  tenterAttaquer: (
+    carteId: string,
+    data: {
+      personnageId: string;
+      personnagePosition: { x: number; y: number };
+      ciblePosition: { x: number; y: number };
+      ciblePvActuels: number;
+    }
+  ) =>
+    requete<ResultatAttaque>(`/cartes/${carteId}/attaquer`, {
       method: "POST",
       body: JSON.stringify(data),
     }),

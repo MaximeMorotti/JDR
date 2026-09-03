@@ -258,3 +258,70 @@ describe("POST /api/cartes/:id/detruire", () => {
     expect(corps.erreur).toMatch(/Aucun obstacle/);
   });
 });
+
+describe("POST /api/cartes/:id/attaquer", () => {
+  type ReponseAttaque = {
+    mode?: "MELEE" | "DISTANCE";
+    portee?: number;
+    distance?: number;
+    degats?: number;
+    pvRestants?: number;
+    vaincu?: boolean;
+    erreur?: string;
+  };
+
+  async function corpsAttaque(reponse: Response): Promise<ReponseAttaque> {
+    return reponse.json() as Promise<ReponseAttaque>;
+  }
+
+  it("attaque au corps-à-corps (aucune arme équipée) et inflige les dégâts fixes", async () => {
+    const reponse = await fetch(`${baseUrl}/api/cartes/${CARTE_ID}/attaquer`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        personnageId,
+        personnagePosition: { x: 0, y: 0 },
+        ciblePosition: { x: 1, y: 0 },
+        ciblePvActuels: 20,
+      }),
+    });
+    const corps = await corpsAttaque(reponse);
+    expect(reponse.status).toBe(200);
+    expect(corps.mode).toBe("MELEE");
+    expect(corps.portee).toBe(1);
+    expect(corps.pvRestants).toBe(15);
+    expect(corps.vaincu).toBe(false);
+  });
+
+  it("vaincu quand les PV de la cible tombent à 0", async () => {
+    const reponse = await fetch(`${baseUrl}/api/cartes/${CARTE_ID}/attaquer`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        personnageId,
+        personnagePosition: { x: 0, y: 0 },
+        ciblePosition: { x: 1, y: 1 },
+        ciblePvActuels: 5,
+      }),
+    });
+    const corps = await corpsAttaque(reponse);
+    expect(corps.pvRestants).toBe(0);
+    expect(corps.vaincu).toBe(true);
+  });
+
+  it("rejette une cible hors de portée en mêlée (non adjacente, aucune arme équipée)", async () => {
+    const reponse = await fetch(`${baseUrl}/api/cartes/${CARTE_ID}/attaquer`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        personnageId,
+        personnagePosition: { x: 0, y: 0 },
+        ciblePosition: { x: 5, y: 5 },
+        ciblePvActuels: 20,
+      }),
+    });
+    expect(reponse.status).toBe(400);
+    const corps = await corpsAttaque(reponse);
+    expect(corps.erreur).toMatch(/hors de portée/);
+  });
+});

@@ -2,21 +2,24 @@
  * Règlement de combat sur grille (Sprint 2, ticket #1, `vibe/design/plan_grille_combat.md` §3-5bis).
  * Fonctions pures : aucun accès DB, aucun HTTP, le jet de dé (`d20`) est toujours fourni en
  * paramètre plutôt que généré ici — ce qui les rend testables de façon exhaustive sans mocker
- * l'aléatoire (voir `combat-resolution.service.test.ts`).
+ * l'aléatoire (voir `combat-resolution.service.test.ts`). L'attaque (§5bis) n'utilise aucun dé
+ * (dégâts fixes) : `resoudreAttaque` reste pure pour la même raison de testabilité, simplement sans
+ * jet à fournir.
  *
  * Reprend le règlement précédemment codé côté client dans `combat-test.ts` (tickets #2-#4) : ce
  * module en devient la seule source de vérité côté serveur (US #27/#28/#30 du ticket #1). Les
- * routes de `carte.routes.ts` (`/franchir`, `/detruire`) tirent le d20 et appellent ces fonctions.
+ * routes de `carte.routes.ts` (`/franchir`, `/detruire`, `/attaquer`) valident les préconditions,
+ * tirent le d20 quand nécessaire, et appellent ces fonctions.
  *
  * `determinerModeAttaque`/`determinerPorteeAttaquePersonnage`/`determinerPorteeAttaqueCreature`
- * n'ont volontairement pas de route dédiée : l'attaque (§5bis) n'utilise aucun dé (dégâts fixes),
- * et les ennemis du banc d'essai ne sont pas encore des entités persistées (pas de table
- * `Creature`, Sprint 3). Elles sont donc dupliquées côté client (`combat-test.ts`) pour l'affichage
- * réactif à chaque rendu — même schéma de duplication assumée que `CATEGORIES_DEUX_MAINS` dans
- * `personnage.routes.ts` (ce module-ci reste la version canonique et testée), MAIS sans l'exécution
- * serveur qui accompagne `CATEGORIES_DEUX_MAINS` (la route `acheter` l'applique réellement) : la
- * règle CLAUDE.md "toute règle de jeu validée côté serveur" n'est donc satisfaite qu'à moitié pour
- * l'attaque — seuls Franchir/Détruire (routes `carte.routes.ts`) le sont pleinement ce ticket-ci.
+ * restent dupliquées côté client (`combat-test.ts`), mais uniquement pour l'affichage réactif du
+ * surlignage "attaquable" à chaque rendu (pas de round-trip réseau pour ça) — même schéma que les
+ * préconditions d'adjacence de Franchir/Détruire. La résolution effective de l'attaque (mode,
+ * portée, dégâts) passe désormais par `POST /cartes/:id/attaquer`, comme Franchir/Détruire : la
+ * règle CLAUDE.md "toute règle de jeu validée côté serveur" est donc pleinement respectée pour
+ * l'attaque aussi. Les ennemis du banc d'essai ne sont toujours pas des entités persistées (pas de
+ * table `Creature`, Sprint 3) : leurs PV restent fournis par le client à chaque appel
+ * (`ciblePvActuels`), exactement comme la position des personnages pour Franchir/Détruire.
  */
 
 export type AxeInteractionObstacle = "ETROIT" | "HAUTEUR";
@@ -169,4 +172,24 @@ export function determinerPorteeAttaquePersonnage(mode: ModeAttaque, dexterite: 
  */
 export function determinerPorteeAttaqueCreature(porteeAttaqueBestiaire: PorteeAttaqueCreature): number {
   return PORTEE_ATTAQUE_CREATURE[porteeAttaqueBestiaire];
+}
+
+export interface ParamsAttaque {
+  pvActuels: number;
+}
+
+export interface ResultatAttaque {
+  pvRestants: number;
+  vaincu: boolean;
+}
+
+/**
+ * Attaque réussie = -5 PV fixes (§5bis, même valeur que la destruction d'obstacle), sans jet de dé.
+ * L'adjacence/la portée (mêlée vs distance) sont déjà vérifiées par l'appelant (route `/attaquer`)
+ * via `determinerModeAttaque`/`determinerPorteeAttaquePersonnage` — cette fonction ne fait
+ * qu'appliquer les dégâts fixes et déterminer si la cible est vaincue.
+ */
+export function resoudreAttaque(params: ParamsAttaque): ResultatAttaque {
+  const pvRestants = Math.max(0, params.pvActuels - DEGATS_FIXES);
+  return { pvRestants, vaincu: pvRestants <= 0 };
 }

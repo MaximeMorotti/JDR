@@ -148,14 +148,9 @@ depuis l'API (`GET /cartes/:id`) au lieu de données codées en dur.
 ## 7. Ce qui reste à coder
 
 Tout ce qui précède (§2-5bis) est codé et testé (module de résolution pur `combat-resolution.service.ts`,
-47 tests vitest). Il ne reste que :
+53 tests vitest) — Franchir, Détruire et Attaquer passent tous les trois par une route serveur dédiée
+(`POST /cartes/:id/franchir`, `/detruire`, `/attaquer`). Il ne reste que :
 
-- **Route serveur pour l'attaque** : `determinerModeAttaque`/`determinerPorteeAttaquePersonnage`/
-  `determinerPorteeAttaqueCreature` existent et sont testées côté serveur, mais aucune route ne les
-  expose — `attaquerEnnemi` reste calculé et appliqué côté client dans `combat-test.ts`, contrairement
-  à Franchir/Détruire qui passent bien par `POST /cartes/:id/franchir` et `/detruire`. Écart documenté
-  dans `CLAUDE.md`, à corriger avant/pendant le Sprint 3 (qui remplace de toute façon ce placeholder
-  par le vrai moteur de dégâts d'arme).
 - Chargement de **plusieurs cartes** sélectionnables dans l'UI (une seule carte réelle chargée
   suffisait pour ce sprint, 🟡 dans la Roadmap) — pas indispensable avant Sprint 3.
 - Relief/dénivelé — toujours hors périmètre, à définir si le besoin s'en fait sentir.
@@ -191,7 +186,6 @@ Elfe/interaction raciale/jets dans `combat-test.ts`, règles simplifiées §5bis
 §6-7. Restent hors périmètre de ce document, pour de futurs sprints :
 
 1. Sprint 3 (vrai moteur de combat) : remplace les placeholders de §5bis (dégâts fixes, portée
-   d'attaque joueur = portée de déplacement, mêlée/distance temporaire par catégorie d'arme) et
-   ajoute la route serveur d'attaque manquante (§7).
+   d'attaque joueur = portée de déplacement, mêlée/distance temporaire par catégorie d'arme).
 2. Sprint 5 (MJ IA) : à revisiter pour l'arbitrage narratif des échecs de franchissement/destruction
    (§5).

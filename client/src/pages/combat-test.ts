@@ -4,14 +4,14 @@ import { state } from "../state";
 import { CREATURES, PORTEE_CASES, type CreatureBestiaire, type ZoneBestiaire } from "../data/bestiaire";
 
 /**
- * Banc d'essai purement client pour le Sprint 2 (déplacement sur grille) — pas de table `Carte` ni
- * `Creature` en base, pas de persistance : juste de quoi valider la mécanique de base avant de
- * construire le vrai système. Le modèle d'obstacle générique (PV/franchissable/malus/axe
- * d'interaction, presets Léger/Moyen/Lourd + case infranchissable de zone) suit
- * vibe/design/plan_grille_combat.md §3 et ADR-0001. Les modes dédiés "Franchir"/"Détruire" (§4-5)
- * lancent le jet de dé correspondant sur un obstacle adjacent au personnage sélectionné ; en dehors
- * de ces modes, un obstacle reste totalement bloquant pour le déplacement normal (`casesAtteignables`
- * — vraie table Creature au Sprint 3).
+ * Banc d'essai pour le Sprint 2 (déplacement sur grille) — la carte (obstacles, tranchées) est
+ * persistée en base (ticket #5), mais les ennemis restent une session purement client, sans table
+ * `Creature` (Sprint 3). Le modèle d'obstacle générique (PV/franchissable/malus/axe d'interaction,
+ * presets Léger/Moyen/Lourd + case infranchissable de zone) suit vibe/design/plan_grille_combat.md
+ * §3 et ADR-0001. Les modes dédiés "Franchir"/"Détruire" (§4-5) et l'attaque d'un ennemi (§5bis)
+ * appellent le moteur de résolution côté serveur (`combat-resolution.service.ts`) sur le personnage
+ * sélectionné ; en dehors de ces modes, un obstacle reste totalement bloquant pour le déplacement
+ * normal (`casesAtteignables`).
  * Grille "octogonale" = grille carrée avec les 8 directions autorisées (distance de Chebyshev), pas
  * un pavage hexagonal — reconfirmé explicitement avec l'utilisateur.
  * Dimensions, obstacles et tranchées viennent désormais de la carte persistée en base (ticket #5,
@@ -103,20 +103,15 @@ type ModeAttaque = "MELEE" | "DISTANCE";
 /** Catégories équipées en MAIN_DROITE qui attaquent à distance sans se déplacer (§5bis). */
 const CATEGORIES_ARME_DISTANCE = ["ARME_DISTANCE", "ARME_JET", "OBJET_MAGIQUE"];
 
-/** Dégâts fixes par attaque réussie — même valeur temporaire que la destruction d'obstacle (§5). */
-const DEGATS_ATTAQUE_FIXES = 5;
-
 /**
  * Mêlée/distance selon la catégorie de l'arme en MAIN_DROITE, jamais selon la race (§5bis) :
  * ARME_DISTANCE/ARME_JET/OBJET_MAGIQUE (Bâton/Grimoire du Mage) → distance ; ARME_LEGERE/ARME_LOURDE
  * ou aucune arme équipée (mains nues) → mêlée.
- * Dupliqué côté client pour l'affichage réactif à chaque rendu (exactement comme
- * `CATEGORIES_DEUX_MAINS` dans `personnage.routes.ts`) — la version canonique et testée est
- * `determinerModeAttaque` dans `server/src/services/combat-resolution.service.ts`. Contrairement à
- * Franchir/Détruire, l'attaque n'utilise aucun dé (dégâts fixes) et cible un ennemi qui n'est pas
- * encore une entité persistée (pas de table `Creature`, Sprint 3) : ticket #1 ne l'a donc PAS fait
- * passer par une route serveur — la règle "toute règle de jeu validée côté serveur" (CLAUDE.md)
- * reste seulement partiellement satisfaite ici, en attendant le vrai moteur de combat.
+ * Dupliqué côté client (exactement comme `CATEGORIES_DEUX_MAINS` dans `personnage.routes.ts`), mais
+ * uniquement pour l'affichage réactif du surlignage "attaquable" à chaque rendu — la résolution
+ * effective d'une attaque passe par `POST /cartes/:id/attaquer` (`tenterAttaquer` ci-dessous), qui
+ * appelle la version canonique et testée `determinerModeAttaque` de
+ * `server/src/services/combat-resolution.service.ts`.
  */
 function determinerModeAttaque(personnage: Personnage): ModeAttaque {
   const armeMainDroite = personnage.inventaire.find((item) => item.emplacement === "MAIN_DROITE");
@@ -130,8 +125,8 @@ function determinerModeAttaque(personnage: Personnage): ModeAttaque {
  * Portée d'attaque d'un joueur (pas de donnée Bestiaire dédiée, placeholder) : un attaquant à
  * distance porte jusqu'à sa portée de déplacement (Dextérité) sans bouger ; un attaquant de mêlée
  * doit être adjacent (Chebyshev 1) à sa cible. Dupliqué côté client comme `determinerModeAttaque`
- * ci-dessus — version canonique et testée : `determinerPorteeAttaquePersonnage` dans
- * `combat-resolution.service.ts`.
+ * ci-dessus, pour le même usage d'affichage — version canonique et testée :
+ * `determinerPorteeAttaquePersonnage` dans `combat-resolution.service.ts`.
  */
 function porteeAttaquePersonnage(personnage: Personnage, mode: ModeAttaque): number {
   return mode === "DISTANCE" ? porteeDeplacement(personnage.dexterite) : 1;
@@ -474,16 +469,34 @@ export async function renderCombatTest(app: HTMLElement) {
   }
 
   /**
-   * Attaque du joueur sur un ennemi en portée (§5bis) : dégâts fixes, mêlée/distance déjà tranchés
-   * par `determinerModeAttaque` au moment de l'appel. Distinct d'`agirEnnemi` (qui simule le tour de
-   * l'ennemi) — un clic sur un ennemi attaquable déclenche celle-ci en priorité (voir le handler de
-   * clic dans `rendre`).
+   * Attaque du joueur sur un ennemi en portée (§5bis) : le surlignage "attaquable" (précondition
+   * d'affichage instantané, calculé dans `rendre`) reste local, mais le mode mêlée/distance, la
+   * portée et l'application des dégâts fixes sont désormais résolus côté serveur
+   * (`api.tenterAttaquer`) — seule source de vérité pour le règlement, comme Franchir/Détruire. Les
+   * PV de l'ennemi restent gérés côté client (pas d'entité `Creature` persistée, Sprint 3) : le
+   * serveur les reçoit et renvoie simplement `pvRestants`/`vaincu`. Distinct d'`agirEnnemi` (qui
+   * simule le tour de l'ennemi) — un clic sur un ennemi attaquable déclenche celle-ci en priorité
+   * (voir le handler de clic dans `rendre`).
    */
-  function attaquerEnnemi(personnage: Personnage, ennemi: Ennemi, mode: ModeAttaque) {
-    ennemi.pv -= DEGATS_ATTAQUE_FIXES;
-    const moyen = mode === "DISTANCE" ? "à distance" : "au corps-à-corps";
-    journal.push(`${personnage.pseudo} attaque ${ennemi.creature.nom} ${moyen} — ${DEGATS_ATTAQUE_FIXES} dégâts.`);
-    if (ennemi.pv <= 0) {
+  async function attaquerEnnemi(personnage: Personnage, ennemi: Ennemi) {
+    const pos = positions.get(personnage.id)!;
+    let resultat;
+    try {
+      resultat = await api.tenterAttaquer(carte.id, {
+        personnageId: personnage.id,
+        personnagePosition: pos,
+        ciblePosition: { x: ennemi.x, y: ennemi.y },
+        ciblePvActuels: ennemi.pv,
+      });
+    } catch (e) {
+      journal.push(`Erreur lors de la tentative d'attaque : ${(e as Error).message}`);
+      rendre();
+      return;
+    }
+    ennemi.pv = resultat.pvRestants;
+    const moyen = resultat.mode === "DISTANCE" ? "à distance" : "au corps-à-corps";
+    journal.push(`${personnage.pseudo} attaque ${ennemi.creature.nom} ${moyen} — ${resultat.degats} dégâts.`);
+    if (resultat.vaincu) {
       ennemis.splice(ennemis.indexOf(ennemi), 1);
       journal.push(`${ennemi.creature.nom} est vaincu !`);
     }
@@ -755,7 +768,7 @@ export async function renderCombatTest(app: HTMLElement) {
         // Un personnage sélectionné avec cet ennemi à portée d'attaque l'attaque (§5bis) ; sinon,
         // clic = faire agir l'ennemi lui-même (comportement existant, inchangé).
         if (selectionne && modeAttaque && attaquables.has(ennemi.instanceId)) {
-          attaquerEnnemi(selectionne, ennemi, modeAttaque);
+          attaquerEnnemi(selectionne, ennemi);
         } else {
           agirEnnemi(ennemi);
         }

@@ -7,6 +7,7 @@ import {
   determinerModeAttaque,
   determinerPorteeAttaqueCreature,
   determinerPorteeAttaquePersonnage,
+  resoudreAttaque,
   resoudreDestruction,
   resoudreFranchissement,
 } from "./combat-resolution.service";
@@ -225,5 +226,25 @@ describe("determinerPorteeAttaquePersonnage vs determinerPorteeAttaqueCreature �
     expect(determinerPorteeAttaqueCreature("DISTANCE")).toBe(5);
     expect(determinerPorteeAttaquePersonnage("DISTANCE", 9)).toBe(9);
     expect(determinerPorteeAttaqueCreature("DISTANCE")).not.toBe(9);
+  });
+});
+
+describe("resoudreAttaque", () => {
+  it("inflige les dégâts fixes, sans jet de dé", () => {
+    const resultat = resoudreAttaque({ pvActuels: 20 });
+    expect(resultat.pvRestants).toBe(20 - DEGATS_FIXES);
+    expect(resultat.vaincu).toBe(false);
+  });
+
+  it("vaincu quand les PV tombent à 0", () => {
+    const resultat = resoudreAttaque({ pvActuels: DEGATS_FIXES });
+    expect(resultat.pvRestants).toBe(0);
+    expect(resultat.vaincu).toBe(true);
+  });
+
+  it("les PV ne descendent jamais sous 0 (cible presque vaincue)", () => {
+    const resultat = resoudreAttaque({ pvActuels: 1 });
+    expect(resultat.pvRestants).toBe(0);
+    expect(resultat.vaincu).toBe(true);
   });
 });

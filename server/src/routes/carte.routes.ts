@@ -2,8 +2,12 @@ import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../db";
 import {
+  DEGATS_FIXES,
   SEUIL_FRANCHISSEMENT,
   SEUIL_RESISTANCE,
+  determinerModeAttaque,
+  determinerPorteeAttaquePersonnage,
+  resoudreAttaque,
   resoudreDestruction,
   resoudreFranchissement,
   type AxeInteractionObstacle,
@@ -177,6 +181,63 @@ carteRouter.post("/:id/detruire", async (req, res) => {
     }
 
     res.json({ ...resultat, seuil: SEUIL_RESISTANCE, x, y });
+  } catch (e) {
+    if (e instanceof ErreurValidation) {
+      return res.status(400).json({ erreur: e.message });
+    }
+    throw e;
+  }
+});
+
+const tentativeAttaqueSchema = z.object({
+  personnageId: z.string().min(1),
+  personnagePosition: positionSchema,
+  ciblePosition: positionSchema,
+  /**
+   * PV actuels de la cible, fournis par le client : les ennemis du banc d'essai ne sont pas encore
+   * des entités persistées (pas de table `Creature`, Sprint 3), voir combat-resolution.service.ts.
+   */
+  ciblePvActuels: z.number().int().min(0),
+});
+
+/**
+ * POST /api/cartes/:id/attaquer
+ * Résout une attaque de personnage sur un ennemi du banc d'essai (§5bis) : mode mêlée/distance
+ * selon la catégorie de l'arme en MAIN_DROITE, portée selon la Dextérité, dégâts fixes — aucun jet
+ * de dé. N'écrit rien dans `Carte.jsonLayout` (l'attaque ne touche jamais un obstacle) ; les PV
+ * restants de la cible sont simplement renvoyés au client, qui reste la seule source de vérité pour
+ * l'état des ennemis tant qu'ils ne sont pas persistés.
+ */
+carteRouter.post("/:id/attaquer", async (req, res) => {
+  const parsed = tentativeAttaqueSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ erreur: parsed.error.issues[0]?.message });
+  }
+  const { personnageId, personnagePosition, ciblePosition, ciblePvActuels } = parsed.data;
+
+  try {
+    const carte = await prisma.carte.findUnique({ where: { id: req.params.id } });
+    if (!carte) {
+      throw new ErreurValidation("Carte introuvable.");
+    }
+    const personnage = await prisma.personnage.findUniqueOrThrow({ where: { id: personnageId } });
+    const armeMainDroite = await prisma.inventairePersonnage.findUnique({
+      where: { personnageId_emplacement: { personnageId, emplacement: "MAIN_DROITE" } },
+      include: { objet: true },
+    });
+
+    const mode = determinerModeAttaque(armeMainDroite?.objet.categorie ?? null);
+    const portee = determinerPorteeAttaquePersonnage(mode, personnage.dexterite);
+    const distance = distanceChebyshev(personnagePosition, ciblePosition);
+    if (distance > portee) {
+      throw new ErreurValidation(
+        `La cible en (${ciblePosition.x}, ${ciblePosition.y}) est hors de portée d'attaque (distance ${distance} > portée ${portee}).`
+      );
+    }
+
+    const resultat = resoudreAttaque({ pvActuels: ciblePvActuels });
+
+    res.json({ mode, portee, distance, degats: DEGATS_FIXES, ...resultat });
   } catch (e) {
     if (e instanceof ErreurValidation) {
       return res.status(400).json({ erreur: e.message });
