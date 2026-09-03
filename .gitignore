@@ -18,4 +18,3 @@ node_modules/
 *.db-shm
 dev.db
 **/dev.db
-
