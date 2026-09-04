@@ -1,5 +1,6 @@
 import { api, type Classe, type Race, type Specialisation } from "../api";
 import { ANGLES_RACES, genererEtoileLiens } from "../components/etoile-liens";
+import { echapperHtml } from "../components/echapper-html";
 import { afficherErreur } from "../components/erreur";
 import { icone } from "../components/icones-classes";
 import { iconeSpecialisation } from "../components/icones-specialisations";
@@ -22,7 +23,7 @@ export async function renderCreationPersonnage(app: HTMLElement) {
 
   app.innerHTML = `
     <div class="entete">
-      <h1>${equipe.nom}</h1>
+      <h1>${echapperHtml(equipe.nom)}</h1>
       <div class="budget ${equipe.orRestant < 20 ? "budget--faible" : ""}">${equipe.orRestant} po</div>
     </div>
     <div class="etapes">

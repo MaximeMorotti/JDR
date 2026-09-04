@@ -1,5 +1,6 @@
 import { api, type Equipe, type Personnage } from "../api";
 import { naviguer } from "../router";
+import { echapperHtml } from "./echapper-html";
 import { afficherErreur } from "./erreur";
 import { genererRadarSVG } from "./radar-stats";
 
@@ -49,10 +50,10 @@ export function ouvrirFichePersonnage(equipe: Equipe, indexDepart: number, verro
         ${liste.length > 1 ? `<button class="fleche-fiche fleche-fiche--droite" data-suiv title="Personnage suivant">›</button>` : ""}
 
         <div class="fiche-perso-defilement">
-          <img class="fiche-perso-banniere" src="/img/equipe-portraits/${p.raceId}.webp" alt="${p.pseudo}" />
+          <img class="fiche-perso-banniere" src="/img/equipe-portraits/${p.raceId}.webp" alt="${echapperHtml(p.pseudo)}" />
 
           <div class="fiche-perso-corps">
-            <input class="fiche-perso-nom" id="fiche-perso-nom" value="${p.pseudo}" maxlength="40" spellcheck="false" ${verrouille ? "disabled" : ""} />
+            <input class="fiche-perso-nom" id="fiche-perso-nom" value="${echapperHtml(p.pseudo)}" maxlength="40" spellcheck="false" ${verrouille ? "disabled" : ""} />
             <div class="fiche-perso-sous-titre">${p.race.nom} · ${p.classe.nom}</div>
             <p class="fiche-perso-lore">${p.race.lore}</p>
 

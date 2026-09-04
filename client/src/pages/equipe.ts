@@ -1,5 +1,6 @@
 import { api, type Equipe } from "../api";
 import { confirmerSuppression } from "../components/confirmation";
+import { echapperHtml } from "../components/echapper-html";
 import { ouvrirFichePersonnage } from "../components/fiche-personnage";
 import { demarrerAventure } from "../components/lancement-aventure";
 import { naviguer } from "../router";
@@ -118,7 +119,7 @@ export async function renderEquipe(app: HTMLElement) {
 
     app.innerHTML = `
       <div class="entete">
-        <h1>${equipe.nom}</h1>
+        <h1>${echapperHtml(equipe.nom)}</h1>
         <div class="budget ${equipe.orRestant < 20 ? "budget--faible" : ""}">${equipe.orRestant} po</div>
       </div>
 
@@ -192,9 +193,9 @@ export async function renderEquipe(app: HTMLElement) {
           return `
       <div class="carte-slot-perso carte-slot-perso--banniere" data-perso="${p.id}" style="--couleur-classe:${couleur};--rect-inset-v:${rectInsetV}%;--rect-inset-h:${rectInsetH}%;--echelle-cadre:${echelleCadre};--decalage-cadre-v:${decalageCadreV}%">
         <div class="banniere-contenu"></div>
-        <img class="portrait-slot" src="/img/equipe-portraits/${p.raceId}.webp" alt="${p.pseudo}" loading="lazy" />
+        <img class="portrait-slot" src="/img/equipe-portraits/${p.raceId}.webp" alt="${echapperHtml(p.pseudo)}" loading="lazy" />
         <div class="etiquette-slot etiquette-slot--banniere">
-          <h3>${p.pseudo}</h3>
+          <h3>${echapperHtml(p.pseudo)}</h3>
           <div class="sous-titre-slot">${p.race.nom} · ${p.classe.nom}</div>
         </div>
         <img class="cadre-banniere" src="/img/cadres/equipe/${p.raceId}.webp" alt="" loading="lazy" />
@@ -224,9 +225,9 @@ export async function renderEquipe(app: HTMLElement) {
       grilleCompagnon.innerHTML = `
         <div class="carte-slot-perso carte-slot-perso--compagnon" data-compagnon>
           ${verrouille ? "" : `<button class="bouton-croix btn-supprimer-slot" data-supprimer-compagnon title="Retirer ${c.nom}">✕</button>`}
-          <img class="portrait-slot" src="/img/compagnons/${c.id}.webp" alt="${pseudo ?? c.nom}" loading="lazy" />
+          <img class="portrait-slot" src="/img/compagnons/${c.id}.webp" alt="${echapperHtml(pseudo ?? c.nom)}" loading="lazy" />
           <div class="etiquette-slot">
-            <h3>${pseudo ?? c.nom}</h3>
+            <h3>${echapperHtml(pseudo ?? c.nom)}</h3>
             <div class="sous-titre-slot">${pseudo ? c.nom : c.role}</div>
           </div>
         </div>

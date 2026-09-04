@@ -1,5 +1,7 @@
 import { api, type Objet, type Personnage } from "../api";
+import { echapperHtml } from "../components/echapper-html";
 import { afficherErreur } from "../components/erreur";
+import { afficherOngletsPersonnages } from "../components/onglets-personnages";
 import { naviguer } from "../router";
 import { state } from "../state";
 
@@ -144,12 +146,12 @@ export async function renderEquipement(app: HTMLElement, params: { personnageId:
 
     app.innerHTML = `
       <div class="entete">
-        <h1>${nomEquipe}</h1>
+        <h1>${echapperHtml(nomEquipe)}</h1>
         <div class="budget ${orRestant < 20 ? "budget--faible" : ""}">${orRestant} po</div>
       </div>
       <div class="liste-personnages" id="onglets-persos"></div>
 
-      <h2>${personnage.pseudo} — ${personnage.race.nom} ${personnage.classe.nom}${personnage.specialisation ? " · " + personnage.specialisation.nom : ""}</h2>
+      <h2>${echapperHtml(personnage.pseudo)} — ${personnage.race.nom} ${personnage.classe.nom}${personnage.specialisation ? " · " + personnage.specialisation.nom : ""}</h2>
 
       ${
         CLASSES_MAGE.includes(personnage.classeId)
@@ -190,14 +192,7 @@ export async function renderEquipement(app: HTMLElement, params: { personnageId:
 
     // Onglets personnages
     const onglets = app.querySelector<HTMLElement>("#onglets-persos")!;
-    onglets.innerHTML = tousPersonnages
-      .map(
-        (p) => `<button type="button" class="onglet-personnage ${p.id === personnage.id ? "actif" : ""}" data-id="${p.id}">${p.pseudo}</button>`
-      )
-      .join("");
-    onglets.querySelectorAll<HTMLElement>(".onglet-personnage").forEach((btn) => {
-      btn.addEventListener("click", () => naviguer(`/equipement/${btn.dataset["id"]}`));
-    });
+    afficherOngletsPersonnages(onglets, tousPersonnages, personnage.id, (id) => naviguer(`/equipement/${id}`));
 
     // Mannequin : les illustrations d'équipement empilées sur l'image de base (cf.
     // PARTIES_MANNEQUIN, ordre dos→devant). `.equipe` teinte la pièce en acier quand l'emplacement

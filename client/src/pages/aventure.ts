@@ -1,4 +1,5 @@
 import { api } from "../api";
+import { echapperHtml } from "../components/echapper-html";
 import { naviguer } from "../router";
 import { state } from "../state";
 
@@ -28,7 +29,7 @@ export async function renderAventure(app: HTMLElement) {
   app.innerHTML = `
     <div class="page-aventure">
       <div class="entete-aventure">
-        <h1>${equipe.nom}</h1>
+        <h1>${echapperHtml(equipe.nom)}</h1>
       </div>
       <div class="chat-aventure" id="chat-log"></div>
       <form class="chat-saisie" id="form-chat">

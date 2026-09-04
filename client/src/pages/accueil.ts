@@ -1,5 +1,6 @@
 import { api } from "../api";
 import { confirmerSuppression } from "../components/confirmation";
+import { echapperHtml } from "../components/echapper-html";
 import { afficherErreur } from "../components/erreur";
 import { naviguer } from "../router";
 import { state } from "../state";
@@ -58,10 +59,10 @@ export async function renderAccueil(app: HTMLElement) {
             (e) => `
           <div class="item-equipe" data-id="${e.id}">
             <span class="infos-item-equipe">
-              <span>${e.nom} — ${e.personnages.length}/4 personnage(s)${e.compagnonEquipe ? ` · ${e.compagnonEquipe.pseudo ?? e.compagnonEquipe.compagnon.nom}` : ""}</span>
+              <span>${echapperHtml(e.nom)} — ${e.personnages.length}/4 personnage(s)${e.compagnonEquipe ? ` · ${echapperHtml(e.compagnonEquipe.pseudo ?? e.compagnonEquipe.compagnon.nom)}` : ""}</span>
               <span>${e.orRestant} po restantes →</span>
             </span>
-            <button class="bouton-croix btn-supprimer-equipe" data-supprimer-equipe="${e.id}" title="Supprimer ${e.nom}">✕</button>
+            <button class="bouton-croix btn-supprimer-equipe" data-supprimer-equipe="${e.id}" title="Supprimer ${echapperHtml(e.nom)}">✕</button>
           </div>
         `
           )
