@@ -1,4 +1,5 @@
 import { api } from "../api";
+import { afficherErreur } from "../components/erreur";
 import { genererRadarSVG } from "../components/radar-stats";
 import { naviguer } from "../router";
 import { state } from "../state";
@@ -86,7 +87,7 @@ export async function renderCompagnon(app: HTMLElement) {
           await api.choisirCompagnon(equipeId!, btn.dataset["choisir"]!);
           await charger();
         } catch (e) {
-          zoneErreur.innerHTML = `<div class="erreur">${(e as Error).message}</div>`;
+          afficherErreur(zoneErreur, e);
         }
       });
     });
@@ -109,7 +110,7 @@ export async function renderCompagnon(app: HTMLElement) {
         await api.renommerCompagnon(equipeId!, valeur);
         await charger();
       } catch (e) {
-        zoneErreur.innerHTML = `<div class="erreur">${(e as Error).message}</div>`;
+        afficherErreur(zoneErreur, e);
       }
     });
     inputNom?.addEventListener("keydown", (e) => {

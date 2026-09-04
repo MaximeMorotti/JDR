@@ -1,5 +1,6 @@
 import { api, type Equipe, type Personnage } from "../api";
 import { naviguer } from "../router";
+import { afficherErreur } from "./erreur";
 import { genererRadarSVG } from "./radar-stats";
 
 /**
@@ -88,10 +89,10 @@ export function ouvrirFichePersonnage(equipe: Equipe, indexDepart: number, verro
         try {
           await api.renommerPersonnage(equipe.id, p.id, valeur);
           p.pseudo = valeur;
-          zoneErreur.innerHTML = "";
+          zoneErreur.replaceChildren();
         } catch (e) {
           inputNom.value = p.pseudo;
-          zoneErreur.innerHTML = `<div class="erreur">${(e as Error).message}</div>`;
+          afficherErreur(zoneErreur, e);
         }
       };
       inputNom.addEventListener("blur", sauverNom);
