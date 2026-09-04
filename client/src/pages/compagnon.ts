@@ -1,4 +1,5 @@
 import { api } from "../api";
+import { echapperHtml } from "../components/echapper-html";
 import { afficherErreur } from "../components/erreur";
 import { genererRadarSVG } from "../components/radar-stats";
 import { naviguer } from "../router";
@@ -35,7 +36,7 @@ export async function renderCompagnon(app: HTMLElement) {
   ) {
     const choisiId = compagnonEquipe?.compagnon.id ?? null;
     app.innerHTML = `
-      <div class="entete"><h1>${nomEquipe}</h1></div>
+      <div class="entete"><h1>${echapperHtml(nomEquipe)}</h1></div>
       <p>Un seul compagnon par équipe. Les chiens et la Mule sont accessibles à toute équipe ; les autres nécessitent une classe ou une race précise dans l'équipe.</p>
       <div id="erreur-compagnon"></div>
       <div class="grille-compagnons" id="grille-compagnons"></div>
@@ -61,7 +62,7 @@ export async function renderCompagnon(app: HTMLElement) {
           <img class="portrait-compagnon" src="/img/compagnons/${c.id}.webp" alt="Portrait ${c.nom}" loading="lazy" />
           ${
             estChoisi
-              ? `<input class="nom-compagnon" data-nom-compagnon value="${compagnonEquipe?.pseudo ?? ""}" placeholder="${c.nom}" maxlength="40" spellcheck="false" />
+              ? `<input class="nom-compagnon" data-nom-compagnon value="${echapperHtml(compagnonEquipe?.pseudo ?? "")}" placeholder="${c.nom}" maxlength="40" spellcheck="false" />
                  <div style="font-size:0.8rem;color:var(--text-dim);margin-top:-4px">${c.nom}</div>`
               : `<h3>${c.nom}</h3>`
           }

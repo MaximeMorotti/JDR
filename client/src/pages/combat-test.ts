@@ -1,4 +1,5 @@
 import { api, type ObstacleCarte, type Personnage } from "../api";
+import { echapperHtml } from "../components/echapper-html";
 import { naviguer } from "../router";
 import { state } from "../state";
 import { CREATURES, PORTEE_CASES, type CreatureBestiaire, type ZoneBestiaire } from "../data/bestiaire";
@@ -698,7 +699,7 @@ export async function renderCombatTest(app: HTMLElement) {
     }
 
     ficheSelection.innerHTML = selectionne
-      ? `<div class="fiche-selection-combat">${selectionne.pseudo} — ${selectionne.race.nom} · ${selectionne.classe.nom} — Dextérité ${selectionne.dexterite} → portée ${portee} · Attaque ${modeAttaque === "DISTANCE" ? "à distance" : "au corps-à-corps"} (portée ${porteeAtq})</div>`
+      ? `<div class="fiche-selection-combat">${echapperHtml(selectionne.pseudo)} — ${selectionne.race.nom} · ${selectionne.classe.nom} — Dextérité ${selectionne.dexterite} → portée ${portee} · Attaque ${modeAttaque === "DISTANCE" ? "à distance" : "au corps-à-corps"} (portée ${porteeAtq})</div>`
       : `<div class="fiche-selection-combat fiche-selection-combat--vide">Sélectionne un personnage pour voir sa portée de déplacement et d'attaque.</div>`;
 
     let html = "";
@@ -725,7 +726,7 @@ export async function renderCombatTest(app: HTMLElement) {
         html += `<div class="${classes}" data-x="${x}" data-y="${y}">`;
         if (perso) {
           const estSelectionne = perso.id === selectionneId;
-          html += `<img class="jeton-personnage ${estSelectionne ? "jeton-personnage--selectionne" : ""}" data-perso="${perso.id}" src="/img/equipe-portraits/${perso.raceId}.webp" alt="${perso.pseudo}" title="${perso.pseudo}" />`;
+          html += `<img class="jeton-personnage ${estSelectionne ? "jeton-personnage--selectionne" : ""}" data-perso="${perso.id}" src="/img/equipe-portraits/${perso.raceId}.webp" alt="${echapperHtml(perso.pseudo)}" title="${echapperHtml(perso.pseudo)}" />`;
         } else if (ennemi) {
           const estAttaquable = attaquables.has(ennemi.instanceId);
           html += `<div class="jeton-ennemi ${estAttaquable ? "jeton-ennemi--attaquable" : ""}" data-ennemi="${ennemi.instanceId}" title="${ennemi.creature.nom} — PV ${ennemi.pv}/${ennemi.creature.pv}${estAttaquable ? " (à portée d'attaque)" : ""}">👹</div>`;
@@ -746,7 +747,7 @@ export async function renderCombatTest(app: HTMLElement) {
 
     journalEl.innerHTML = journal
       .slice(-8)
-      .map((ligne) => `<div class="ligne-journal-combat">${ligne}</div>`)
+      .map((ligne) => `<div class="ligne-journal-combat">${echapperHtml(ligne)}</div>`)
       .join("");
     journalEl.scrollTop = journalEl.scrollHeight;
 

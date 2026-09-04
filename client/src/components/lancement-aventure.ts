@@ -1,6 +1,7 @@
 import { api, type Equipe } from "../api";
 import { naviguer } from "../router";
-import { confirmerAvertissement } from "./confirmation";
+import { confirmerAvertissement, ouvrirOverlayConfirmation } from "./confirmation";
+import { echapperHtml } from "./echapper-html";
 
 function attendre(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -32,56 +33,43 @@ async function jouerTransitionFumee(action: () => void): Promise<void> {
 
 /** Popup de récapitulatif final (équipe, compagnon, équipement) avant de lancer l'aventure. */
 function ouvrirRecapAventure(equipe: Equipe): Promise<boolean> {
-  return new Promise((resolve) => {
-    const overlay = document.createElement("div");
-    overlay.className = "overlay-confirmation";
+  const overlay = document.createElement("div");
+  overlay.className = "overlay-confirmation";
 
-    const compagnon = equipe.compagnonEquipe;
-    const recapCompagnon = compagnon
-      ? `<div class="recap-bloc">
-          <h4>Compagnon</h4>
-          <div class="recap-ligne">${compagnon.pseudo ?? compagnon.compagnon.nom} — <span class="recap-dim">${compagnon.compagnon.nom}</span></div>
-        </div>`
-      : `<div class="recap-bloc"><h4>Compagnon</h4><div class="recap-ligne recap-dim">Aucun</div></div>`;
+  const compagnon = equipe.compagnonEquipe;
+  const recapCompagnon = compagnon
+    ? `<div class="recap-bloc">
+        <h4>Compagnon</h4>
+        <div class="recap-ligne">${echapperHtml(compagnon.pseudo ?? compagnon.compagnon.nom)} — <span class="recap-dim">${compagnon.compagnon.nom}</span></div>
+      </div>`
+    : `<div class="recap-bloc"><h4>Compagnon</h4><div class="recap-ligne recap-dim">Aucun</div></div>`;
 
-    overlay.innerHTML = `
-      <div class="boite-confirmation boite-recap">
-        <h3>Valider cette équipe ?</h3>
-        <p>Dernière vérification avant de partir — impossible de revenir en arrière une fois l'aventure lancée.</p>
-        <div class="recap-personnages">
-          ${equipe.personnages
-            .map(
-              (p) => `
-            <div class="recap-bloc">
-              <h4>${p.pseudo} <span class="recap-dim">— ${p.race.nom} · ${p.classe.nom}</span></h4>
-              <div class="recap-ligne recap-dim">
-                ${p.inventaire.length > 0 ? p.inventaire.map((i) => i.objet.nom).join(", ") : "Aucun équipement"}
-              </div>
+  overlay.innerHTML = `
+    <div class="boite-confirmation boite-recap">
+      <h3>Valider cette équipe ?</h3>
+      <p>Dernière vérification avant de partir — impossible de revenir en arrière une fois l'aventure lancée.</p>
+      <div class="recap-personnages">
+        ${equipe.personnages
+          .map(
+            (p) => `
+          <div class="recap-bloc">
+            <h4>${echapperHtml(p.pseudo)} <span class="recap-dim">— ${p.race.nom} · ${p.classe.nom}</span></h4>
+            <div class="recap-ligne recap-dim">
+              ${p.inventaire.length > 0 ? p.inventaire.map((i) => i.objet.nom).join(", ") : "Aucun équipement"}
             </div>
-          `
-            )
-            .join("")}
-        </div>
-        ${recapCompagnon}
-        <div class="actions">
-          <button class="btn btn--fantome" data-annuler>Annuler</button>
-          <button class="btn btn--primaire" data-jouer>⚔ Jouer</button>
-        </div>
+          </div>
+        `
+          )
+          .join("")}
       </div>
-    `;
-    document.body.appendChild(overlay);
-
-    function fermer(resultat: boolean) {
-      overlay.remove();
-      resolve(resultat);
-    }
-
-    overlay.querySelector("[data-annuler]")!.addEventListener("click", () => fermer(false));
-    overlay.querySelector("[data-jouer]")!.addEventListener("click", () => fermer(true));
-    overlay.addEventListener("click", (e) => {
-      if (e.target === overlay) fermer(false);
-    });
-  });
+      ${recapCompagnon}
+      <div class="actions">
+        <button class="btn btn--fantome" data-annuler>Annuler</button>
+        <button class="btn btn--primaire" data-confirmer>⚔ Jouer</button>
+      </div>
+    </div>
+  `;
+  return ouvrirOverlayConfirmation(overlay);
 }
 
 /**

@@ -1,4 +1,6 @@
 import { api } from "../api";
+import { echapperHtml } from "../components/echapper-html";
+import { afficherOngletsPersonnages } from "../components/onglets-personnages";
 import { genererRadarSVG } from "../components/radar-stats";
 import { naviguer } from "../router";
 import { state } from "../state";
@@ -48,7 +50,7 @@ export async function renderCompetences(app: HTMLElement, params: { personnageId
 
     <div class="page-competences">
       <div class="competences-entete">
-        <h2>${personnage.pseudo}</h2>
+        <h2>${echapperHtml(personnage.pseudo)}</h2>
         <div class="sous-titre-slot">${personnage.race.nom} · ${personnage.classe.nom}</div>
         <div class="points-competence">${personnage.pointsCompetenceNonAlloues} point(s) de compétence non alloué(s)</div>
       </div>
@@ -80,14 +82,7 @@ export async function renderCompetences(app: HTMLElement, params: { personnageId
   `;
 
   const onglets = app.querySelector<HTMLElement>("#onglets-persos")!;
-  onglets.innerHTML = equipe.personnages
-    .map(
-      (p) => `<button type="button" class="onglet-personnage ${p.id === personnage.id ? "actif" : ""}" data-id="${p.id}">${p.pseudo}</button>`
-    )
-    .join("");
-  onglets.querySelectorAll<HTMLElement>(".onglet-personnage").forEach((btn) => {
-    btn.addEventListener("click", () => naviguer(`/competences/${btn.dataset["id"]}`));
-  });
+  afficherOngletsPersonnages(onglets, equipe.personnages, personnage.id, (id) => naviguer(`/competences/${id}`));
 
   app.querySelector("#btn-retour")!.addEventListener("click", () => naviguer("/equipe"));
 }
