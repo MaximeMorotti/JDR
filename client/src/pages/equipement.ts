@@ -1,4 +1,5 @@
 import { api, type Objet, type Personnage } from "../api";
+import { afficherErreur } from "../components/erreur";
 import { naviguer } from "../router";
 import { state } from "../state";
 
@@ -246,7 +247,7 @@ export async function renderEquipement(app: HTMLElement, params: { personnageId:
           await api.retirerObjet(equipeId!, personnage.id, btn.dataset["retirer"]!);
           await charger();
         } catch (e) {
-          zoneErreur.innerHTML = `<div class="erreur">${(e as Error).message}</div>`;
+          afficherErreur(zoneErreur, e);
         }
       });
     });
@@ -331,7 +332,7 @@ export async function renderEquipement(app: HTMLElement, params: { personnageId:
             await api.acheterObjet(equipeId!, personnage.id, objetId, slot);
             await charger();
           } catch (e) {
-            zoneErreur.innerHTML = `<div class="erreur">${(e as Error).message}</div>`;
+            afficherErreur(zoneErreur, e);
           }
         });
       });

@@ -1,5 +1,6 @@
 import { api, type Classe, type Race, type Specialisation } from "../api";
 import { ANGLES_RACES, genererEtoileLiens } from "../components/etoile-liens";
+import { afficherErreur } from "../components/erreur";
 import { icone } from "../components/icones-classes";
 import { iconeSpecialisation } from "../components/icones-specialisations";
 import { genererRadarSVG } from "../components/radar-stats";
@@ -219,7 +220,7 @@ export async function renderCreationPersonnage(app: HTMLElement) {
       });
       await jouerTransitionRace(raceSelectionnee.id, () => naviguer("/equipe"));
     } catch (e) {
-      zoneErreur.innerHTML = `<div class="erreur">${(e as Error).message}</div>`;
+      afficherErreur(zoneErreur, e);
       btnSuivant.disabled = false;
     }
   });

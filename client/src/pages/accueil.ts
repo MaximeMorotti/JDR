@@ -1,5 +1,6 @@
 import { api } from "../api";
 import { confirmerSuppression } from "../components/confirmation";
+import { afficherErreur } from "../components/erreur";
 import { naviguer } from "../router";
 import { state } from "../state";
 
@@ -36,7 +37,7 @@ export async function renderAccueil(app: HTMLElement) {
       state.equipeId = equipe.id;
       naviguer("/creation");
     } catch (e) {
-      zoneErreur.innerHTML = `<div class="erreur">${(e as Error).message}</div>`;
+      afficherErreur(zoneErreur, e);
     }
   });
 
